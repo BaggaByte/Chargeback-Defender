@@ -1,8 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createDispute, addEvidence, addAuditLog, addNotification, store, getDisputes } from '@/db';
+import { createDispute, addEvidence, addAuditLog, addNotification, db } from '@/db';
+import { disputes } from '@/db/schema';
+import { eq, or } from 'drizzle-orm';
+import { auth } from '@/auth';
 
 export async function POST(req: NextRequest) {
   try {
+    const session = await auth();
+    // Simulate webhook logic - realistically this wouldn't use session auth, but webhook secrets. 
+    // For this prototype, we'll extract the org from the session if available, or fallback to 'org-1' if testing via curl.
+    const orgId = session?.user ? (session.user as any).organizationId : 'org-1';
+
     const body = await req.json();
     const { eventType, payload } = body;
 
@@ -18,7 +26,7 @@ export async function POST(req: NextRequest) {
       } = payload || {};
 
       const created = await createDispute({
-        organizationId: 'org-1',
+        organizationId: orgId,
         customerEmail,
         customerName,
         amount: Number(amount),
@@ -36,8 +44,14 @@ export async function POST(req: NextRequest) {
     }
 
     if (eventType === 'FEDEX_DELIVERY_PROOF') {
-      const disputes = await getDisputes();
-      const openDispute = disputes.find((d) => d.status === 'OPEN' || d.status === 'EVIDENCE_COLLECTING');
+      const openDisputes = await db.select().from(disputes).where(
+        or(
+          eq(disputes.status, 'OPEN'),
+          eq(disputes.status, 'EVIDENCE_COLLECTING')
+        )
+      ).limit(1);
+
+      const openDispute = openDisputes[0];
       if (openDispute) {
         const ev = await addEvidence(
           {
@@ -45,15 +59,10 @@ export async function POST(req: NextRequest) {
             type: 'SHIPPING_PROOF',
             title: `Carrier GPS Delivery & Direct Signature Confirmation`,
             content: `Real-time webhook scan: Delivered by courier to verified cardholder porch. GPS timestamp synchronized with order dispatch log.`,
-            sourceIntegration: 'FedEx Webhook Live',
-            fileSize: '512 KB',
-            fileType: 'PDF Manifest',
             isAutoCollected: true,
-            confidenceScore: 99,
-            isIncludedInSubmission: true,
-            verifiedAt: new Date().toISOString(),
-          },
+          } as any,
           {
+            organizationId: openDispute.organizationId,
             actorName: 'FedEx Webhook Worker',
             actorRole: 'INTEGRATION_BOT',
           }
@@ -67,7 +76,7 @@ export async function POST(req: NextRequest) {
           severity: 'success',
           read: false,
           linkUrl: `/disputes/${openDispute.id}`,
-        });
+        } as any);
 
         return NextResponse.json({
           success: true,
@@ -79,25 +88,22 @@ export async function POST(req: NextRequest) {
 
     if (eventType === 'PRE_DISPUTE_ALERT') {
       await addNotification({
-        organizationId: 'org-1',
+        organizationId: orgId,
         title: 'Verifi / Ethoca Pre-Dispute Alert',
         message: 'A 24-hour pre-chargeback inquiry was received for $180.00. Resolve now to prevent official dispute filing.',
         type: 'INTEGRATION_ALERT',
         severity: 'warning',
         read: false,
         linkUrl: '/disputes',
-      });
+      } as any);
 
       await addAuditLog({
-        organizationId: 'org-1',
-        userName: 'Verifi CDRN Integration',
-        userRole: 'INTEGRATION_BOT',
+        organizationId: orgId,
         action: 'PRE_DISPUTE_ALERT_RECEIVED',
         entityType: 'INTEGRATION',
         entityId: 'int-verifi',
         details: 'Received Ethoca/Verifi automated chargeback prevention alert.',
-        ipAddress: '198.51.100.99',
-      });
+      } as any);
 
       return NextResponse.json({
         success: true,
@@ -107,6 +113,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: false, error: 'Unknown eventType' }, { status: 400 });
   } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    console.error('API Error:', error);
+    return NextResponse.json({ success: false, error: 'Internal Server Error' }, { status: 500 });
   }
 }

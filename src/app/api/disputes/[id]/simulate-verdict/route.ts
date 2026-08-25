@@ -1,11 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDisputeById, updateDispute, addNotification, addAuditLog } from '@/db';
+import { getDisputeById, updateDispute, addNotification, db } from '@/db';
+import { auditLogs } from '@/db/schema';
+import { auth } from '@/auth';
 
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
+    const session = await auth();
+    if (!session?.user) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const orgId = (session.user as any).organizationId;
+    if (!orgId) {
+      return NextResponse.json({ success: false, error: 'User does not belong to an organization' }, { status: 403 });
+    }
+
     const resolvedParams = await Promise.resolve(params);
     const body = await req.json();
     const { outcome } = body; // 'WON' | 'LOST'
@@ -17,34 +29,41 @@ export async function POST(
       );
     }
 
-    const dispute = await getDisputeById(resolvedParams.id);
+    const dispute = await getDisputeById(resolvedParams.id, orgId);
     if (!dispute) {
       return NextResponse.json({ success: false, error: 'Dispute not found' }, { status: 404 });
     }
 
-    const now = new Date().toISOString();
-    const updated = await updateDispute(resolvedParams.id, {
-      status: outcome,
-      resolvedAt: now,
-    });
+    if (dispute.status !== 'SUBMITTED') {
+      return NextResponse.json(
+        { success: false, error: `Dispute must be in SUBMITTED state to receive a verdict, currently: ${dispute.status}` },
+        { status: 400 }
+      );
+    }
 
-    await addAuditLog({
-      organizationId: dispute.organizationId,
-      userName: `${dispute.processor.toUpperCase()} Network Webhook`,
-      userRole: 'PROCESSOR_GATEWAY',
-      action: outcome === 'WON' ? 'DISPUTE_WON_REVERSED' : 'DISPUTE_LOST_FINALIZED',
-      entityType: 'DISPUTE',
-      entityId: dispute.id,
-      details:
-        outcome === 'WON'
-          ? `Processor ${dispute.processor.toUpperCase()} ruled in merchant's favor. Reclaimed $${dispute.amount.toFixed(2)} + $${dispute.feeAmount} fee.`
-          : `Processor ${dispute.processor.toUpperCase()} upheld cardholder chargeback for $${dispute.amount.toFixed(2)}.`,
-      ipAddress: '52.14.92.11',
-    });
+    const now = new Date().toISOString();
+    const updated = await updateDispute(
+      resolvedParams.id,
+      orgId,
+      {
+        status: outcome,
+        resolvedAt: now as any, // Type coercion to satisfy DisputeRecord vs Drizzle mismatch
+      },
+      {
+        userId: session.user.id,
+        actorName: `${dispute.processor.toUpperCase()} Network Webhook`,
+        actorRole: 'PROCESSOR_GATEWAY',
+        action: outcome === 'WON' ? 'DISPUTE_WON_REVERSED' : 'DISPUTE_LOST_FINALIZED',
+        details:
+          outcome === 'WON'
+            ? `Processor ${dispute.processor.toUpperCase()} ruled in merchant's favor. Reclaimed $${dispute.amount}.`
+            : `Processor ${dispute.processor.toUpperCase()} upheld cardholder chargeback for $${dispute.amount}.`,
+      }
+    );
 
     await addNotification({
       organizationId: dispute.organizationId,
-      title: outcome === 'WON' ? `Dispute Won! +$${dispute.amount.toFixed(2)}` : `Dispute Lost: $${dispute.amount.toFixed(2)}`,
+      title: outcome === 'WON' ? `Dispute Won! +$${dispute.amount}` : `Dispute Lost: $${dispute.amount}`,
       message:
         outcome === 'WON'
           ? `Acquiring bank accepted evidence for ${dispute.externalDisputeId}. Funds restored.`
@@ -53,13 +72,14 @@ export async function POST(
       severity: outcome === 'WON' ? 'success' : 'critical',
       read: false,
       linkUrl: `/disputes/${dispute.id}`,
-    });
+    } as any);
 
     return NextResponse.json({
       success: true,
       data: updated,
     });
   } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    console.error('API Error:', error);
+    return NextResponse.json({ success: false, error: 'Internal Server Error' }, { status: 500 });
   }
 }
