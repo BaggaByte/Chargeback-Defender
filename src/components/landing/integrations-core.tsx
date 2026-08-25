@@ -1,108 +1,80 @@
 'use client';
 
-import React, { useState } from 'react';
-import {
-  CreditCard,
-  ShoppingBag,
-  Truck,
-  MessageSquare,
-  Plug,
-  CheckCircle2,
-  Lock,
-} from 'lucide-react';
+import React from 'react';
+import { CreditCard, ShoppingBag, Truck, LifeBuoy } from 'lucide-react';
+
+const categories = [
+  {
+    icon: CreditCard,
+    title: 'Payment processors',
+    items: ['Stripe', 'PayPal', 'Braintree', 'Adyen'],
+    note: 'Dispute webhooks, auth records, Radar signals',
+  },
+  {
+    icon: ShoppingBag,
+    title: 'Commerce platforms',
+    items: ['Shopify', 'WooCommerce', 'BigCommerce', 'Magento'],
+    note: 'Orders, terms acceptance, subscription usage',
+  },
+  {
+    icon: Truck,
+    title: 'Carriers & logistics',
+    items: ['FedEx', 'UPS', 'USPS', 'DHL'],
+    note: 'Proof of delivery, signatures, GPS coordinates',
+  },
+  {
+    icon: LifeBuoy,
+    title: 'Support desks',
+    items: ['Zendesk', 'Intercom', 'Salesforce', 'Gorgias'],
+    note: 'Tickets, refund history, buyer correspondence',
+  },
+];
 
 export function IntegrationsCore() {
-  const integrations = [
-    {
-      name: 'Stripe Payments',
-      category: 'Payment Processor',
-      data: 'Dispute lifecycle webhooks, Radar risk metrics, 3DS authentication tokens',
-      status: 'Native Sync',
-      icon: <CreditCard className="w-5 h-5 text-blue-400" />,
-    },
-    {
-      name: 'Shopify Payments',
-      category: 'E-Commerce Platform',
-      data: 'Itemized invoices, SKU taxonomy, checkout clickwrap timestamp',
-      status: 'Native Sync',
-      icon: <ShoppingBag className="w-5 h-5 text-emerald-400" />,
-    },
-    {
-      name: 'PayPal & Braintree',
-      category: 'Payment Processor',
-      data: 'Seller protection proof, buyer transaction ledger, IPN dispute events',
-      status: 'Native Sync',
-      icon: <CreditCard className="w-5 h-5 text-indigo-400" />,
-    },
-    {
-      name: 'FedEx Web Services',
-      category: 'Carrier Logistics',
-      data: 'Carrier signature capture, GPS delivery geostamp, parcel weight match',
-      status: 'Live API',
-      icon: <Truck className="w-5 h-5 text-amber-400" />,
-    },
-    {
-      name: 'UPS Track & Trace',
-      category: 'Carrier Logistics',
-      data: 'Proof-of-delivery receipts, delivery timestamp, driver confirmation',
-      status: 'Live API',
-      icon: <Truck className="w-5 h-5 text-amber-400" />,
-    },
-    {
-      name: 'Zendesk & Intercom',
-      category: 'Customer Support',
-      data: 'Support tickets, order confirmation emails, refund inquiry history',
-      status: 'Event Streams',
-      icon: <MessageSquare className="w-5 h-5 text-cyan-400" />,
-    },
-  ];
-
   return (
-    <section id="integrations" className="py-20 sm:py-28 bg-[#0b0f19] border-b border-slate-800">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        
-        {/* Section Header */}
-        <div className="max-w-3xl space-y-4">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-slate-900 border border-slate-800 text-xs font-medium text-slate-300">
-            <Plug className="w-3.5 h-3.5 text-blue-400" />
-            <span>COMMERCE ECOSYSTEM CONNECTORS</span>
+    <section id="integrations" className="border-t border-ink-200 bg-ink-50">
+      <div className="mx-auto max-w-7xl px-6 py-20 lg:px-8 lg:py-28">
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+          <div className="max-w-2xl">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-brand-700">
+              Integrations
+            </p>
+            <h2 className="mt-3 text-3xl font-semibold tracking-tight text-ink-900 sm:text-4xl">
+              Connected to the systems where your evidence already lives.
+            </h2>
+            <p className="mt-4 text-base leading-relaxed text-ink-600">
+              Read-only connectors sync automatically. A custom REST or webhook integration is
+              available on Enterprise for internal systems and ERPs.
+            </p>
           </div>
-          <h2 className="text-2xl sm:text-4xl font-bold tracking-tight text-white">
-            Connects to your entire commerce and logistics stack.
-          </h2>
-          <p className="text-slate-400 text-sm sm:text-base leading-relaxed">
-            Plug-and-play integrations with zero custom engineering. One-click OAuth authorization and webhook listeners synchronize evidence in real-time.
-          </p>
         </div>
 
-        {/* Integrations Grid */}
-        <div className="mt-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {integrations.map((item, idx) => (
+        <div className="mt-12 grid gap-5 sm:grid-cols-2">
+          {categories.map((cat) => (
             <div
-              key={idx}
-              className="p-6 rounded-xl border border-slate-800 bg-[#0e1320] space-y-4 hover:border-slate-700 transition-colors"
+              key={cat.title}
+              className="rounded-xl border border-ink-200 bg-white p-6 shadow-[0_1px_2px_rgb(15_23_42/0.04)]"
             >
-              <div className="flex items-center justify-between">
-                <div className="p-2.5 rounded-lg bg-slate-900 border border-slate-800">
-                  {item.icon}
+              <div className="flex items-center gap-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-md bg-brand-50 ring-1 ring-inset ring-brand-100">
+                  <cat.icon className="h-4.5 w-4.5 text-brand-700" />
                 </div>
-                <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-slate-900 text-slate-300 border border-slate-800">
-                  {item.status}
-                </span>
+                <h3 className="text-base font-semibold tracking-tight text-ink-900">{cat.title}</h3>
               </div>
-
-              <div>
-                <h3 className="text-base font-bold text-white tracking-tight">{item.name}</h3>
-                <span className="text-xs font-mono text-slate-400">{item.category}</span>
+              <div className="mt-5 grid grid-cols-2 gap-2">
+                {cat.items.map((item) => (
+                  <div
+                    key={item}
+                    className="rounded-md border border-ink-200 bg-ink-50 px-3 py-2 text-sm font-medium text-ink-700"
+                  >
+                    {item}
+                  </div>
+                ))}
               </div>
-
-              <p className="text-xs text-slate-300 leading-relaxed font-normal pt-1 border-t border-slate-800/80">
-                {item.data}
-              </p>
+              <p className="mt-4 text-xs text-ink-500">{cat.note}</p>
             </div>
           ))}
         </div>
-
       </div>
     </section>
   );

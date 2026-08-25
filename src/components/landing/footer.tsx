@@ -2,82 +2,122 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Shield } from 'lucide-react';
+import { ShieldCheck } from 'lucide-react';
+
+const columns = [
+  {
+    heading: 'Product',
+    links: [
+      { label: 'Platform overview', href: '#platform' },
+      { label: 'How it works', href: '#how-it-works' },
+      { label: 'Integrations', href: '#integrations' },
+      { label: 'ROI model', href: '#roi' },
+      { label: 'Pricing', href: '#pricing' },
+    ],
+  },
+  {
+    heading: 'Security',
+    links: [
+      { label: 'Security & compliance', href: '#security' },
+      { label: 'SOC 2 Type II', href: '#security' },
+      { label: 'PCI DSS Level 1', href: '#security' },
+      { label: 'Data residency', href: '#security' },
+    ],
+  },
+  {
+    heading: 'Resources',
+    links: [
+      { label: 'Dispute deadline guide', href: '#how-it-works' },
+      { label: 'Visa CE 3.0 overview', href: '#platform' },
+      { label: 'Reason code reference', href: '#platform' },
+      { label: 'Console', href: '/login' },
+    ],
+  },
+  {
+    heading: 'Company',
+    links: [
+      { label: 'About', href: '#platform' },
+      { label: 'Careers', href: 'mailto:careers@chargebackdefender.com' },
+      { label: 'Contact sales', href: 'mailto:sales@chargebackdefender.com' },
+      { label: 'Support', href: 'mailto:support@chargebackdefender.com' },
+    ],
+  },
+];
 
 export function Footer() {
   return (
-    <footer className="bg-[#060911] text-slate-400 text-xs">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14">
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-8 pb-12 border-b border-slate-800">
-          
-          {/* Brand Col */}
+    <footer className="bg-ink-950 text-ink-400">
+      <div className="mx-auto max-w-7xl px-6 lg:px-8">
+        <div className="grid grid-cols-2 gap-10 border-b border-white/10 py-14 md:grid-cols-6">
+          {/* Brand */}
           <div className="col-span-2 space-y-4">
-            <Link href="/" className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-md bg-blue-600 flex items-center justify-center text-white">
-                <Shield className="w-3.5 h-3.5" />
-              </div>
-              <span className="font-semibold text-white text-sm">
-                Chargeback <span className="text-blue-400">Defender</span>
+            <Link href="/landing" className="flex items-center gap-2.5">
+              <span className="flex h-8 w-8 items-center justify-center rounded-md bg-white text-ink-900">
+                <ShieldCheck className="h-[18px] w-[18px]" strokeWidth={2} />
+              </span>
+              <span className="text-[15px] font-semibold tracking-tight text-white">
+                Chargeback Defender
               </span>
             </Link>
-
-            <p className="text-slate-400 text-xs max-w-sm leading-relaxed">
-              Autonomous dispute recovery for high-volume commerce and subscription platforms. Turn lost chargeback volume into reclaimed revenue.
+            <p className="max-w-xs text-sm leading-relaxed">
+              Payment dispute recovery infrastructure for high-volume merchants, marketplaces, and
+              subscription platforms.
             </p>
-
-            <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded bg-slate-900 border border-slate-800 text-[11px] text-slate-300 font-mono">
-              <span className="w-2 h-2 rounded-full bg-emerald-400" />
-              <span>All Systems Operational (99.99%)</span>
+            <div className="inline-flex items-center gap-2 rounded-md border border-white/10 px-2.5 py-1.5 text-[11px] text-ink-300">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
+                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
+              </span>
+              All systems operational
             </div>
           </div>
 
-          {/* Product Col */}
-          <div className="space-y-3">
-            <span className="font-semibold text-slate-200 uppercase tracking-wider text-[11px] block">
-              Product
-            </span>
-            <ul className="space-y-2 text-slate-400">
-              <li><a href="#platform" className="hover:text-white transition-colors">Platform</a></li>
-              <li><a href="#engine" className="hover:text-white transition-colors">Evidence Engine</a></li>
-              <li><a href="#workbench" className="hover:text-white transition-colors">Live Workbench</a></li>
-              <li><a href="#roi-calculator" className="hover:text-white transition-colors">ROI Calculator</a></li>
-            </ul>
-          </div>
-
-          {/* Integrations Col */}
-          <div className="space-y-3">
-            <span className="font-semibold text-slate-200 uppercase tracking-wider text-[11px] block">
-              Connectors
-            </span>
-            <ul className="space-y-2 text-slate-400">
-              <li><a href="#integrations" className="hover:text-white transition-colors">Stripe & Radar</a></li>
-              <li><a href="#integrations" className="hover:text-white transition-colors">Shopify Payments</a></li>
-              <li><a href="#integrations" className="hover:text-white transition-colors">FedEx & Logistics</a></li>
-              <li><a href="#integrations" className="hover:text-white transition-colors">Visa CE 3.0 Rules</a></li>
-            </ul>
-          </div>
-
-          {/* Company & Legal */}
-          <div className="space-y-3">
-            <span className="font-semibold text-slate-200 uppercase tracking-wider text-[11px] block">
-              Security & Plans
-            </span>
-            <ul className="space-y-2 text-slate-400">
-              <li><a href="#pricing" className="hover:text-white transition-colors">Pricing Plans</a></li>
-              <li><a href="#security" className="hover:text-white transition-colors">Security Architecture</a></li>
-              <li><Link href="/login" className="hover:text-white transition-colors">Merchant Sign In</Link></li>
-              <li><Link href="/" className="hover:text-white transition-colors">App Dashboard</Link></li>
-            </ul>
-          </div>
+          {columns.map((col) => (
+            <div key={col.heading} className="space-y-4">
+              <h3 className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-200">
+                {col.heading}
+              </h3>
+              <ul className="space-y-2.5">
+                {col.links.map((link) =>
+                  link.href.startsWith('mailto:') || link.href.startsWith('/') ? (
+                    <li key={link.label}>
+                      {link.href.startsWith('mailto:') ? (
+                        <a href={link.href} className="text-sm transition-colors hover:text-white">
+                          {link.label}
+                        </a>
+                      ) : (
+                        <Link href={link.href} className="text-sm transition-colors hover:text-white">
+                          {link.label}
+                        </Link>
+                      )}
+                    </li>
+                  ) : (
+                    <li key={link.label}>
+                      <a href={link.href} className="text-sm transition-colors hover:text-white">
+                        {link.label}
+                      </a>
+                    </li>
+                  ),
+                )}
+              </ul>
+            </div>
+          ))}
         </div>
 
-        {/* Bottom copyright row */}
-        <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-slate-500 text-xs">
-          <div>&copy; {new Date().getFullYear()} Chargeback Defender Inc. All rights reserved.</div>
-          <div className="flex items-center gap-4">
-            <span>PCI-DSS Level 1 Compliant</span>
-            <span>•</span>
-            <span>Visa CE 3.0 Standard</span>
+        {/* Legal row */}
+        <div className="flex flex-col items-center justify-between gap-4 py-8 text-xs sm:flex-row">
+          <p>© {new Date().getFullYear()} Chargeback Defender, Inc. All rights reserved.</p>
+          <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
+            <a href="#security" className="transition-colors hover:text-white">
+              Privacy Policy
+            </a>
+            <a href="#security" className="transition-colors hover:text-white">
+              Terms of Service
+            </a>
+            <a href="#security" className="transition-colors hover:text-white">
+              DPA
+            </a>
+            <span className="text-ink-600">SOC 2 Type II · PCI DSS L1 · GDPR</span>
           </div>
         </div>
       </div>

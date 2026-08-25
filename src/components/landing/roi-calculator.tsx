@@ -1,170 +1,151 @@
 'use client';
 
 import React, { useState } from 'react';
-import Link from 'next/link';
-import { Calculator, DollarSign, Clock, ArrowRight } from 'lucide-react';
+
+const currency = (value: number) =>
+  value.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
 
 export function RoiCalculator() {
-  const [monthlyDisputes, setMonthlyDisputes] = useState<number>(100);
-  const [avgDisputeValue, setAvgDisputeValue] = useState<number>(250);
-  const [currentWinRate, setCurrentWinRate] = useState<number>(30);
+  const [monthlyDisputes, setMonthlyDisputes] = useState(120);
+  const [avgDisputeValue, setAvgDisputeValue] = useState(180);
+  const [currentWinRate, setCurrentWinRate] = useState(32);
 
-  const totalVolumeAtRisk = monthlyDisputes * avgDisputeValue;
-  const defenderWinRate = 87.4;
-  const currentMonthlyRecovery = totalVolumeAtRisk * (currentWinRate / 100);
-  const defenderMonthlyRecovery = totalVolumeAtRisk * (defenderWinRate / 100);
-  const netMonthlyGain = Math.max(0, defenderMonthlyRecovery - currentMonthlyRecovery);
+  const liftFactor = 3.2;
+  const defenderWinRate = Math.min(currentWinRate * liftFactor, 85);
+  const monthlyVolume = monthlyDisputes * avgDisputeValue;
+  const currentRecovered = monthlyVolume * (currentWinRate / 100);
+  const defenderRecovered = monthlyVolume * (defenderWinRate / 100);
+  const netMonthlyGain = Math.max(defenderRecovered - currentRecovered, 0);
   const netAnnualGain = netMonthlyGain * 12;
-  const hoursSavedWeekly = Math.round((monthlyDisputes * 1.25) / 4);
+  const analystHoursSaved = Math.round(monthlyDisputes * 1.1);
+
+  const inputs = [
+    {
+      label: 'Monthly dispute volume',
+      value: monthlyDisputes,
+      display: `${monthlyDisputes.toLocaleString()} / mo`,
+      min: 10,
+      max: 1000,
+      step: 10,
+      onChange: setMonthlyDisputes,
+      scale: ['10', '500', '1,000'],
+    },
+    {
+      label: 'Average dispute value',
+      value: avgDisputeValue,
+      display: currency(avgDisputeValue),
+      min: 25,
+      max: 2000,
+      step: 25,
+      onChange: setAvgDisputeValue,
+      scale: ['$25', '$1,000', '$2,000'],
+    },
+    {
+      label: 'Your current win rate',
+      value: currentWinRate,
+      display: `${currentWinRate}%`,
+      min: 5,
+      max: 80,
+      step: 1,
+      onChange: setCurrentWinRate,
+      scale: ['5%', '40%', '80%'],
+    },
+  ];
 
   return (
-    <section id="roi-calculator" className="py-20 sm:py-28 bg-[#0e1320] border-b border-slate-800">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        
-        {/* Section Header */}
-        <div className="max-w-3xl space-y-4">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-slate-900 border border-slate-800 text-xs font-medium text-slate-300">
-            <Calculator className="w-3.5 h-3.5 text-blue-400" />
-            <span>FINANCIAL REVENUE MODEL</span>
-          </div>
-          <h2 className="text-2xl sm:text-4xl font-bold tracking-tight text-white">
-            Calculate your recovered revenue.
+    <section id="roi" className="bg-white">
+      <div className="mx-auto max-w-7xl px-6 py-20 lg:px-8 lg:py-28">
+        <div className="max-w-2xl">
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-brand-700">
+            Business case
+          </p>
+          <h2 className="mt-3 text-3xl font-semibold tracking-tight text-ink-900 sm:text-4xl">
+            Model your recovery upside.
           </h2>
-          <p className="text-slate-400 text-sm sm:text-base leading-relaxed">
-            Estimate how much lost dispute revenue Chargeback Defender reclaims directly back to your merchant settlement account each month.
+          <p className="mt-4 text-base leading-relaxed text-ink-600 sm:text-lg">
+            Adjust the inputs to estimate the annual revenue difference between your current win
+            rate and a correlation-grade evidence program. Model assumes a {liftFactor}× win-rate
+            lift, capped at 85%, consistent with observed median deployments.
           </p>
         </div>
 
-        {/* Calculator Card */}
-        <div className="mt-12 rounded-xl border border-slate-800 bg-[#090d16] p-6 sm:p-10">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-            
-            {/* Inputs (Left 7 Cols) */}
-            <div className="lg:col-span-7 space-y-6">
-              
-              {/* Slider 1 */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-xs font-medium">
-                  <span className="text-slate-300">Monthly Dispute Volume</span>
-                  <span className="text-white font-mono font-bold text-sm">{monthlyDisputes} cases / mo</span>
+        <div className="mt-12 overflow-hidden rounded-xl border border-ink-200 shadow-[0_1px_2px_rgb(15_23_42/0.04)]">
+          <div className="grid grid-cols-1 lg:grid-cols-2">
+            {/* Inputs */}
+            <div className="space-y-9 bg-white p-7 sm:p-10">
+              {inputs.map((input) => (
+                <div key={input.label}>
+                  <div className="flex items-baseline justify-between">
+                    <label className="text-sm font-medium text-ink-700">{input.label}</label>
+                    <span className="text-sm font-semibold tabular-nums text-ink-900">
+                      {input.display}
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min={input.min}
+                    max={input.max}
+                    step={input.step}
+                    value={input.value}
+                    onChange={(e) => input.onChange(Number(e.target.value))}
+                    className="cd-range mt-4 w-full"
+                    aria-label={input.label}
+                  />
+                  <div className="mt-2 flex justify-between text-[11px] tabular-nums text-ink-400">
+                    {input.scale.map((s) => (
+                      <span key={s}>{s}</span>
+                    ))}
+                  </div>
                 </div>
-                <input
-                  type="range"
-                  min="10"
-                  max="1000"
-                  step="10"
-                  value={monthlyDisputes}
-                  onChange={(e) => setMonthlyDisputes(Number(e.target.value))}
-                  className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-600"
-                />
-                <div className="flex justify-between text-[11px] text-slate-500 font-mono">
-                  <span>10 cases</span>
-                  <span>500 cases</span>
-                  <span>1,000 cases</span>
-                </div>
-              </div>
+              ))}
 
-              {/* Slider 2 */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-xs font-medium">
-                  <span className="text-slate-300">Average Dispute Amount</span>
-                  <span className="text-white font-mono font-bold text-sm">${avgDisputeValue} USD</span>
-                </div>
-                <input
-                  type="range"
-                  min="25"
-                  max="2000"
-                  step="25"
-                  value={avgDisputeValue}
-                  onChange={(e) => setAvgDisputeValue(Number(e.target.value))}
-                  className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-600"
-                />
-                <div className="flex justify-between text-[11px] text-slate-500 font-mono">
-                  <span>$25</span>
-                  <span>$1,000</span>
-                  <span>$2,000</span>
-                </div>
-              </div>
-
-              {/* Slider 3 */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-xs font-medium">
-                  <span className="text-slate-300">Current Manual Win Rate</span>
-                  <span className="text-white font-mono font-bold text-sm">{currentWinRate}%</span>
-                </div>
-                <input
-                  type="range"
-                  min="10"
-                  max="70"
-                  step="1"
-                  value={currentWinRate}
-                  onChange={(e) => setCurrentWinRate(Number(e.target.value))}
-                  className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-600"
-                />
-                <div className="flex justify-between text-[11px] text-slate-500 font-mono">
-                  <span>10% (Low)</span>
-                  <span>30% (Industry Average)</span>
-                  <span>70% (High)</span>
-                </div>
-              </div>
-
-              {/* Labor Hours Saved */}
-              <div className="p-4 rounded-lg bg-slate-900/60 border border-slate-800 flex items-center justify-between text-xs">
-                <div className="flex items-center gap-3">
-                  <Clock className="w-4 h-4 text-blue-400" />
-                  <span className="text-slate-300">Estimated Analyst Time Saved</span>
-                </div>
-                <span className="font-mono text-white font-bold">~{hoursSavedWeekly} hours / week</span>
+              <div className="rounded-lg border border-ink-200 bg-ink-50 p-4 text-xs leading-relaxed text-ink-500">
+                Estimates are directional and exclude processor fees, network assessments, and
+                program-cost avoidance. A formal model is provided during evaluation.
               </div>
             </div>
 
-            {/* Results Column (Right 5 Cols) */}
-            <div className="lg:col-span-5 rounded-xl border border-slate-800 bg-[#0e1320] p-6 sm:p-7 space-y-6">
-              <div>
-                <span className="text-[11px] font-mono text-slate-400 uppercase tracking-wider block">
-                  MONTHLY VOLUME AT RISK
-                </span>
-                <span className="text-2xl font-bold font-mono text-white mt-0.5 block">
-                  ${totalVolumeAtRisk.toLocaleString()}
-                  <span className="text-xs text-slate-400 font-normal"> / mo</span>
-                </span>
+            {/* Results */}
+            <div className="bg-ink-900 p-7 sm:p-10">
+              <div className="text-xs font-medium uppercase tracking-[0.14em] text-ink-400">
+                Estimated annual impact
+              </div>
+              <div className="mt-3 text-5xl font-semibold tracking-tight text-white tabular-nums">
+                {currency(netAnnualGain)}
+              </div>
+              <div className="mt-2 text-sm text-ink-400">
+                Additional recovered revenue per year
               </div>
 
-              <div className="p-4 rounded-lg bg-slate-900 border border-slate-800 space-y-1">
-                <span className="text-[11px] font-mono text-slate-400 uppercase tracking-wider block">
-                  PROJECTED RECOVERY (87.4% WIN RATE)
-                </span>
-                <span className="text-2xl font-bold font-mono text-white block">
-                  ${Math.round(defenderMonthlyRecovery).toLocaleString()}
-                  <span className="text-xs text-slate-400 font-normal"> / mo</span>
-                </span>
-              </div>
-
-              <div className="p-4 rounded-lg bg-emerald-950/40 border border-emerald-800/80 space-y-1">
-                <span className="text-[11px] font-mono text-emerald-400 font-bold uppercase tracking-wider block">
-                  NET ADDITIONAL REVENUE GAINED
-                </span>
-                <span className="text-3xl font-extrabold font-mono text-emerald-400 block">
-                  +${Math.round(netMonthlyGain).toLocaleString()}
-                  <span className="text-xs text-emerald-300 font-normal"> / mo</span>
-                </span>
-                <span className="text-xs font-mono text-emerald-300 block pt-1">
-                  +${Math.round(netAnnualGain).toLocaleString()} annual lift
-                </span>
-              </div>
-
-              <Link
-                href="/"
-                className="w-full py-3 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors"
-              >
-                <span>Start Recovering Revenue</span>
-                <ArrowRight className="w-4 h-4" />
-              </Link>
+              <dl className="mt-9 space-y-5 border-t border-white/10 pt-7">
+                <div className="flex items-baseline justify-between gap-4">
+                  <dt className="text-sm text-ink-300">Projected win rate</dt>
+                  <dd className="text-sm font-semibold tabular-nums text-white">
+                    {currentWinRate}% → {Math.round(defenderWinRate)}%
+                  </dd>
+                </div>
+                <div className="flex items-baseline justify-between gap-4">
+                  <dt className="text-sm text-ink-300">Monthly recovery, today</dt>
+                  <dd className="text-sm font-semibold tabular-nums text-white">
+                    {currency(currentRecovered)}
+                  </dd>
+                </div>
+                <div className="flex items-baseline justify-between gap-4">
+                  <dt className="text-sm text-ink-300">Monthly recovery, projected</dt>
+                  <dd className="text-sm font-semibold tabular-nums text-white">
+                    {currency(defenderRecovered)}
+                  </dd>
+                </div>
+                <div className="flex items-baseline justify-between gap-4">
+                  <dt className="text-sm text-ink-300">Analyst hours returned / month</dt>
+                  <dd className="text-sm font-semibold tabular-nums text-white">
+                    ≈ {analystHoursSaved.toLocaleString()} hrs
+                  </dd>
+                </div>
+              </dl>
             </div>
-
           </div>
         </div>
-
       </div>
     </section>
   );

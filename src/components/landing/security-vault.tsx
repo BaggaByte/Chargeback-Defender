@@ -1,98 +1,95 @@
 'use client';
 
 import React from 'react';
-import { Shield, Lock, FileCheck2, UserCheck, KeyRound, Server } from 'lucide-react';
+import { ShieldCheck, Lock, KeyRound, History, Globe2, UserCog } from 'lucide-react';
+
+const certifications = ['SOC 2 Type II', 'PCI DSS Level 1', 'GDPR', 'CCPA', 'ISO 27001 (in progress)'];
+
+const controls = [
+  {
+    icon: Lock,
+    title: 'Encryption everywhere',
+    body: 'AES-256 at rest with managed KMS keys, TLS 1.3 in transit. Cardholder data is tokenized — raw PAN never touches our systems.',
+  },
+  {
+    icon: UserCog,
+    title: 'Role-based access control',
+    body: 'Granular roles for analysts, risk managers, and auditors. SSO with SAML and SCIM provisioning on Enterprise plans.',
+  },
+  {
+    icon: History,
+    title: 'Append-only audit logging',
+    body: 'Every evidence retrieval, score, approval, and submission is cryptographically logged and exportable for acquirer review.',
+  },
+  {
+    icon: KeyRound,
+    title: 'Scoped, read-only connectors',
+    body: 'Integrations use least-privilege OAuth scopes and are verified with HMAC signatures before any event is processed.',
+  },
+  {
+    icon: Globe2,
+    title: 'Data residency & retention',
+    body: 'Choose US or EU processing regions, with configurable retention windows and automated PII redaction after case closure.',
+  },
+  {
+    icon: ShieldCheck,
+    title: 'Dedicated infrastructure',
+    body: 'Logically isolated multi-tenancy with per-organization encryption contexts and continuous third-party penetration testing.',
+  },
+];
 
 export function SecurityVault() {
-  const securityPillars = [
-    {
-      title: 'Field-Level AES-256 Encryption',
-      category: 'DATA ENCRYPTION',
-      icon: <Lock className="w-5 h-5 text-blue-400" />,
-      description:
-        'All cardholder data, transaction tokens, and evidence attachments are encrypted at rest with dedicated KMS hardware security modules.',
-    },
-    {
-      title: 'Granular Role-Based Access Control',
-      category: 'GOVERNANCE & PERMISSIONS',
-      icon: <UserCheck className="w-5 h-5 text-indigo-400" />,
-      description:
-        'Strict separation of duties. Risk managers review and sign off on submissions while external auditors have read-only compliance access.',
-    },
-    {
-      title: 'Immutable Cryptographic Audit Trail',
-      category: 'COMPLIANCE AUDIT',
-      icon: <FileCheck2 className="w-5 h-5 text-emerald-400" />,
-      description:
-        'Every evidence retrieval, scoring calculation, and gateway representment is recorded in an append-only log with SHA-256 signatures.',
-    },
-    {
-      title: 'Zero-Trust Webhook Verification',
-      category: 'GATEWAY SECURITY',
-      icon: <KeyRound className="w-5 h-5 text-amber-400" />,
-      description:
-        'All incoming dispute events from Stripe, PayPal, and Shopify are verified with mandatory HMAC-SHA256 signature handshakes before ingestion.',
-    },
-    {
-      title: 'Multi-Tenant Logical Isolation',
-      category: 'INFRASTRUCTURE ISOLATION',
-      icon: <Server className="w-5 h-5 text-cyan-400" />,
-      description:
-        'Strict database schema tenancy guarantees complete isolation of customer transactions, evidence vaults, and organizational policies.',
-    },
-    {
-      title: 'Automated PII Redaction & Retention',
-      category: 'PRIVACY & RETENTION',
-      icon: <Shield className="w-5 h-5 text-blue-400" />,
-      description:
-        'Configurable data retention policies automatically redact cardholder PII after dispute settlement deadlines pass.',
-    },
-  ];
-
   return (
-    <section id="security" className="py-20 sm:py-28 bg-[#0e1320] border-b border-slate-800">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        
-        {/* Section Header */}
-        <div className="max-w-3xl space-y-4">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-slate-900 border border-slate-800 text-xs font-medium text-slate-300">
-            <Shield className="w-3.5 h-3.5 text-blue-400" />
-            <span>ENTERPRISE SECURITY & COMPLIANCE</span>
-          </div>
-          <h2 className="text-2xl sm:text-4xl font-bold tracking-tight text-white">
-            Institutional-grade security from day one.
+    <section id="security" className="border-t border-ink-200 bg-ink-50">
+      <div className="mx-auto max-w-7xl px-6 py-20 lg:px-8 lg:py-28">
+        <div className="max-w-2xl">
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-brand-700">
+            Security &amp; compliance
+          </p>
+          <h2 className="mt-3 text-3xl font-semibold tracking-tight text-ink-900 sm:text-4xl">
+            Built to handle dispute data with the care it requires.
           </h2>
-          <p className="text-slate-400 text-sm sm:text-base leading-relaxed">
-            Built for regulated financial environments. We process sensitive customer and payment records with end-to-end encryption, strict role-based governance, and immutable audit ledgers.
+          <p className="mt-4 text-base leading-relaxed text-ink-600 sm:text-lg">
+            Payment evidence is sensitive by definition. The platform is designed so your team, your
+            acquirer, and your auditors can each get exactly the access they need — and nothing
+            more.
           </p>
         </div>
 
-        {/* 6 Security Cards Grid */}
-        <div className="mt-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {securityPillars.map((pillar, idx) => (
-            <div
-              key={idx}
-              className="p-6 rounded-xl bg-[#090d16] border border-slate-800 space-y-4 hover:border-slate-700 transition-colors"
+        {/* Certification badges */}
+        <div className="mt-10 flex flex-wrap items-center gap-3">
+          {certifications.map((cert) => (
+            <span
+              key={cert}
+              className="inline-flex items-center gap-2 rounded-md border border-ink-200 bg-white px-3.5 py-2 text-xs font-medium text-ink-700 shadow-[0_1px_2px_rgb(15_23_42/0.04)]"
             >
-              <div className="flex items-center justify-between">
-                <div className="p-2.5 rounded-lg bg-slate-900 border border-slate-800">
-                  {pillar.icon}
-                </div>
-                <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider">
-                  {pillar.category}
-                </span>
-              </div>
+              <ShieldCheck className="h-3.5 w-3.5 text-brand-700" />
+              {cert}
+            </span>
+          ))}
+        </div>
 
-              <div>
-                <h3 className="text-base font-bold text-white tracking-tight">{pillar.title}</h3>
-                <p className="text-xs text-slate-400 mt-2 leading-relaxed font-normal">
-                  {pillar.description}
-                </p>
+        <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {controls.map((control) => (
+            <div
+              key={control.title}
+              className="rounded-xl border border-ink-200 bg-white p-6 shadow-[0_1px_2px_rgb(15_23_42/0.04)]"
+            >
+              <div className="flex h-9 w-9 items-center justify-center rounded-md bg-brand-50 ring-1 ring-inset ring-brand-100">
+                <control.icon className="h-4.5 w-4.5 text-brand-700" />
               </div>
+              <h3 className="mt-4 text-base font-semibold tracking-tight text-ink-900">
+                {control.title}
+              </h3>
+              <p className="mt-2 text-sm leading-relaxed text-ink-600">{control.body}</p>
             </div>
           ))}
         </div>
 
+        <p className="mt-8 text-xs text-ink-500">
+          Security documentation, penetration test summaries, and a completed CAIQ are available
+          under NDA during vendor review.
+        </p>
       </div>
     </section>
   );
