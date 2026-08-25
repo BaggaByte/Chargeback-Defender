@@ -7,9 +7,15 @@ const { auth } = NextAuth(authConfig);
 export default auth((req) => {
   const isLoggedIn = !!req.auth;
   const isAuthPage = req.nextUrl.pathname.startsWith('/login');
+  const isLandingPage = req.nextUrl.pathname.startsWith('/landing');
 
   // Allow API routes to handle their own auth checks
   if (req.nextUrl.pathname.startsWith('/api')) {
+    return NextResponse.next();
+  }
+
+  // Allow landing page to be viewed publicly
+  if (isLandingPage) {
     return NextResponse.next();
   }
 
@@ -21,8 +27,11 @@ export default auth((req) => {
     return NextResponse.next();
   }
 
-  // Redirect to login if not logged in and trying to access a protected route
+  // Redirect to landing page if not logged in and visiting home, or to login if visiting dashboard subroutes
   if (!isLoggedIn) {
+    if (req.nextUrl.pathname === '/') {
+      return NextResponse.redirect(new URL('/landing', req.nextUrl));
+    }
     return NextResponse.redirect(new URL('/login', req.nextUrl));
   }
 

@@ -218,6 +218,16 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
           {/* Zone 3: Actions & Notifications */}
           <div className="flex items-center gap-2.5 shrink-0">
+            {/* Landing Page Link */}
+            <Link
+              href="/landing"
+              className="hidden lg:inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-900 text-cyan-300 hover:bg-slate-800 text-xs font-semibold rounded-md border border-slate-700 transition-colors whitespace-nowrap"
+              title="View the Animated Marketing Landing Page"
+            >
+              <span>◈ Landing Page</span>
+              <ExternalLink className="w-3 h-3 text-cyan-400" />
+            </Link>
+
             {/* Quick Webhook Ingest Action */}
             <button
               onClick={() => triggerSimulatedWebhook('CHARGEBACK_RECEIVED')}

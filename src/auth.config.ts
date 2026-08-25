@@ -2,6 +2,7 @@ export const authConfig = {
   pages: {
     signIn: '/login',
   },
+  secret: process.env.AUTH_SECRET || 'chargeback-defender-demo-secret-key-1234567890',
   callbacks: {
     async jwt({ token, user }: { token: any, user: any }) {
       if (user) {
