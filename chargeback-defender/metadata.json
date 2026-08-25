@@ -1,0 +1,5 @@
+{
+  "name": "Chargeback Defender",
+  "description": "Automate payment dispute management for B2B SaaS",
+  "capabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
