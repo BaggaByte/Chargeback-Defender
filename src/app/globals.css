@@ -1,10 +1,65 @@
 @import "tailwindcss";
 
 @theme {
-  --animate-shimmer: shimmer 1.5s infinite linear;
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+
+  /* Enterprise accent scale */
+  --color-brand-50: #eef4ff;
+  --color-brand-100: #dbe7fe;
+  --color-brand-200: #bfd4fe;
+  --color-brand-300: #93b4fd;
+  --color-brand-400: #6090fa;
+  --color-brand-500: #3b6df6;
+  --color-brand-600: #2557eb;
+  --color-brand-700: #1d45d8;
+  --color-brand-800: #1e3aaf;
+  --color-brand-900: #1e358a;
+  --color-brand-950: #172354;
+
+  /* Neutral ink scale */
+  --color-ink-50: #f8fafc;
+  --color-ink-100: #f1f5f9;
+  --color-ink-200: #e2e8f0;
+  --color-ink-300: #cbd5e1;
+  --color-ink-400: #94a3b8;
+  --color-ink-500: #64748b;
+  --color-ink-600: #475569;
+  --color-ink-700: #334155;
+  --color-ink-800: #1e293b;
+  --color-ink-900: #0f172a;
+  --color-ink-950: #0a0f1e;
 }
 
-@keyframes shimmer {
-  0% { transform: translateX(-150%) skewX(12deg); }
-  100% { transform: translateX(150%) skewX(12deg); }
+/* Refined range input styling for the ROI calculator */
+input[type="range"].cd-range {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  border-radius: 9999px;
+  background: var(--color-ink-200);
+  outline: none;
+}
+input[type="range"].cd-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 9999px;
+  background: #ffffff;
+  border: 2px solid var(--color-brand-600);
+  box-shadow: 0 1px 3px rgb(15 23 42 / 0.15);
+  cursor: pointer;
+}
+input[type="range"].cd-range::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 9999px;
+  background: #ffffff;
+  border: 2px solid var(--color-brand-600);
+  box-shadow: 0 1px 3px rgb(15 23 42 / 0.15);
+  cursor: pointer;
+}
+
+html {
+  scroll-behavior: smooth;
 }

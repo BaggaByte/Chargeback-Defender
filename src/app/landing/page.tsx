@@ -2,72 +2,62 @@ import React from 'react';
 import { Metadata } from 'next';
 import { Navbar } from '@/components/landing/navbar';
 import { Hero } from '@/components/landing/hero';
+import { LogoStrip } from '@/components/landing/logo-strip';
 import { ProblemSection } from '@/components/landing/problem-section';
-import { EvidenceGraph } from '@/components/landing/evidence-graph';
-import { EnginePipeline } from '@/components/landing/engine-pipeline';
-import { EvidenceIntelligence } from '@/components/landing/evidence-intelligence';
-import { AiHumanSplit } from '@/components/landing/ai-human-split';
-import { InteractiveCaseWorkbench } from '@/components/landing/interactive-case-workbench';
-import { RecoveryMetrics } from '@/components/landing/recovery-metrics';
-import { RoiCalculator } from '@/components/landing/roi-calculator';
+import { HowItWorks } from '@/components/landing/how-it-works';
+import { PlatformSection } from '@/components/landing/platform-section';
+import { Outcomes } from '@/components/landing/outcomes';
 import { IntegrationsCore } from '@/components/landing/integrations-core';
+import { RoiCalculator } from '@/components/landing/roi-calculator';
 import { SecurityVault } from '@/components/landing/security-vault';
 import { PricingSection } from '@/components/landing/pricing-section';
 import { FinalCta } from '@/components/landing/final-cta';
 import { Footer } from '@/components/landing/footer';
 
 export const metadata: Metadata = {
-  title: 'Chargeback Defender — Autonomous Dispute Recovery for High-Volume Merchants',
+  title: 'Chargeback Defender — Payment Dispute Recovery for High-Volume Merchants',
   description:
-    'Reclaim lost chargeback revenue automatically. Chargeback Defender correlates payment telemetry, carrier delivery proof, and customer sessions into win-ready rebuttal dossiers.',
+    'Chargeback Defender compiles payment records, delivery confirmation, and customer history into network-compliant dispute representments — automatically, before your response window closes.',
 };
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-[#0b0f19] text-slate-100 font-sans antialiased selection:bg-blue-600/30 selection:text-white">
-      {/* Institutional Top Bar */}
+    <div className="min-h-screen bg-white text-ink-900 antialiased selection:bg-brand-100 selection:text-brand-900">
       <Navbar />
+      <main>
+        {/* Value proposition with live product preview */}
+        <Hero />
 
-      {/* Hero Section with Live Product Dossier Preview */}
-      <Hero />
+        {/* Customer credibility markers */}
+        <LogoStrip />
 
-      {/* Problem Comparison: Manual Bottleneck vs Autonomous Defender */}
-      <ProblemSection />
+        {/* The operational cost of manual dispute handling */}
+        <ProblemSection />
 
-      {/* 5-Source Evidence Architecture */}
-      <EvidenceGraph />
+        {/* Connect → Correlate → Submit */}
+        <HowItWorks />
 
-      {/* 6-Stage Autonomous Engine Pipeline */}
-      <EnginePipeline />
+        {/* Evidence engine, rule intelligence, controls */}
+        <PlatformSection />
 
-      {/* Card Network Rules (Visa CE 3.0, Mastercard, Amex) & Scoring */}
-      <EvidenceIntelligence />
+        {/* Measured outcomes and customer quote */}
+        <Outcomes />
 
-      {/* Risk Governance & Autopilot Modes */}
-      <AiHumanSplit />
+        {/* Connector coverage by category */}
+        <IntegrationsCore />
 
-      {/* Interactive Case Inspector */}
-      <InteractiveCaseWorkbench />
+        {/* Interactive recovery model */}
+        <RoiCalculator />
 
-      {/* Recovery Metrics & Volume Numbers */}
-      <RecoveryMetrics />
+        {/* Certifications and security controls */}
+        <SecurityVault />
 
-      {/* Financial ROI Calculator */}
-      <RoiCalculator />
+        {/* Plans and billing options */}
+        <PricingSection />
 
-      {/* Connector Integrations Grid */}
-      <IntegrationsCore />
-
-      {/* Enterprise Security Architecture */}
-      <SecurityVault />
-
-      {/* Transparent Pricing Plans */}
-      <PricingSection />
-
-      {/* Direct Action Final CTA */}
-      <FinalCta />
-
-      {/* Clean Footer */}
+        {/* Closing conversion moment */}
+        <FinalCta />
+      </main>
       <Footer />
     </div>
   );
