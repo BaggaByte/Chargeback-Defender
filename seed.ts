@@ -20,7 +20,7 @@ async function seed() {
 
   const [admin] = await db.insert(users).values({
     organizationId: org.id,
-    email: 'admin@acme.com',
+    email: 'admin@example.com',
     fullName: 'Admin User',
     role: 'ADMIN',
   }).returning();
