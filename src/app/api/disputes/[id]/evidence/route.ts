@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { addEvidence, getDisputeById, db } from '@/db';
-import { evidence as evidenceSchema } from '@/db/schema';
-import { eq, and } from 'drizzle-orm';
+import { addEvidence, getDisputeById, updateEvidenceInclusion } from '@/db';
 import { auth } from '@/auth';
 
 export async function POST(
@@ -14,21 +12,20 @@ export async function POST(
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
-    const orgId = (session.user as any).organizationId;
+    const orgId = (session.user as { organizationId?: string }).organizationId;
     if (!orgId) {
       return NextResponse.json({ success: false, error: 'User does not belong to an organization' }, { status: 403 });
     }
 
     const resolvedParams = await Promise.resolve(params);
-    
-    // Verify dispute exists and belongs to org
+
     const dispute = await getDisputeById(resolvedParams.id, orgId);
     if (!dispute) {
       return NextResponse.json({ success: false, error: 'Dispute not found' }, { status: 404 });
     }
 
     const body = await req.json();
-    const { type, title, content } = body;
+    const { type, title, content, sourceIntegration } = body;
 
     if (!title || !content) {
       return NextResponse.json({ success: false, error: 'Missing title or content' }, { status: 400 });
@@ -36,22 +33,23 @@ export async function POST(
 
     const newEvidence = await addEvidence(
       {
-        disputeId: resolvedParams.id,
+        disputeId: dispute.id,
         type: type || 'OTHER',
         title,
         content,
-      } as any,
+        sourceIntegration: sourceIntegration || 'Manual Upload',
+      },
       {
         userId: session.user.id,
         actorName: session.user.name || 'Unknown',
-        actorRole: (session.user as any).role || 'UNKNOWN',
+        actorRole: (session.user as { role?: string }).role || 'UNKNOWN',
         organizationId: orgId,
       }
     );
 
-    const updatedDispute = await getDisputeById(resolvedParams.id, orgId);
+    const updatedDispute = await getDisputeById(dispute.id, orgId);
     return NextResponse.json({ success: true, data: newEvidence, dispute: updatedDispute });
-  } catch (error: any) {
+  } catch (error) {
     console.error('API Error:', error);
     return NextResponse.json({ success: false, error: 'Internal Server Error' }, { status: 500 });
   }
@@ -67,14 +65,13 @@ export async function PATCH(
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
-    const orgId = (session.user as any).organizationId;
+    const orgId = (session.user as { organizationId?: string }).organizationId;
     if (!orgId) {
       return NextResponse.json({ success: false, error: 'User does not belong to an organization' }, { status: 403 });
     }
 
     const resolvedParams = await Promise.resolve(params);
-    
-    // Verify dispute exists and belongs to org
+
     const dispute = await getDisputeById(resolvedParams.id, orgId);
     if (!dispute) {
       return NextResponse.json({ success: false, error: 'Dispute not found' }, { status: 404 });
@@ -83,15 +80,19 @@ export async function PATCH(
     const body = await req.json();
     const { evidenceId, isIncludedInSubmission } = body;
 
-    if (typeof isIncludedInSubmission === 'boolean') {
-      await db.update(evidenceSchema)
-        .set({ isAutoCollected: isIncludedInSubmission }) // Using this field as a proxy for the missing boolean in schema
-        .where(eq(evidenceSchema.id, evidenceId));
+    if (typeof isIncludedInSubmission !== 'boolean' || !evidenceId) {
+      return NextResponse.json({ success: false, error: 'evidenceId and isIncludedInSubmission required' }, { status: 400 });
     }
 
-    const updatedDispute = await getDisputeById(resolvedParams.id, orgId);
+    const updatedDispute = await updateEvidenceInclusion(
+      evidenceId,
+      dispute.id,
+      orgId,
+      isIncludedInSubmission
+    );
+
     return NextResponse.json({ success: true, data: null, dispute: updatedDispute });
-  } catch (error: any) {
+  } catch (error) {
     console.error('API Error:', error);
     return NextResponse.json({ success: false, error: 'Internal Server Error' }, { status: 500 });
   }

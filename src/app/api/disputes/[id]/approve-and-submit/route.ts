@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDisputeById, updateDispute, addNotification, addAuditLog } from '@/db';
+import {
+  getDisputeById,
+  updateDispute,
+  addNotification,
+  addAuditLog,
+  submitDisputeToProcessor,
+} from '@/db';
 import { auth } from '@/auth';
 
 export async function POST(
@@ -12,11 +18,11 @@ export async function POST(
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
-    const orgId = (session.user as any).organizationId;
+    const orgId = (session.user as { organizationId?: string }).organizationId;
     const userId = session.user.id;
     const userName = session.user.name || 'Unknown User';
-    
-    const role = (session.user as any).role;
+    const role = (session.user as { role?: string }).role;
+
     if (role === 'OPERATOR') {
       return NextResponse.json({ success: false, error: 'Forbidden: Operators cannot approve disputes' }, { status: 403 });
     }
@@ -28,7 +34,6 @@ export async function POST(
     const resolvedParams = await Promise.resolve(params);
     const body = await req.json();
     const { approvalNotes, verifiedChecklist } = body;
-    // We intentionally IGNORE reviewerName and reviewerRole from body for security
 
     const dispute = await getDisputeById(resolvedParams.id, orgId);
     if (!dispute) {
@@ -42,29 +47,50 @@ export async function POST(
       );
     }
 
-    const now = new Date();
-    const updated = await updateDispute(resolvedParams.id, orgId, {
-      status: 'SUBMITTED',
-      // Store the real user IDs (note: schema might need these fields in DB, but we keep it matching the previous mock interface for now)
-      // approvedByUserName: userName,
-      // approvedByUserId: userId,
-      // approvalNotes: approvalNotes || 'Reviewed and verified against card brand rules.',
-      // approvedAt: now,
+    const now = new Date().toISOString();
+
+    const updated = await updateDispute(
+      dispute.id,
+      orgId,
+      {
+        status: 'SUBMITTED',
+        approvedByUserName: userName,
+        approvedByUserId: userId,
+        approvalNotes: approvalNotes || 'Reviewed and verified against card brand rules.',
+        approvedAt: now,
+        submittedAt: now,
+      },
+      {
+        userId,
+        actorName: userName,
+        actorRole: role || 'UNKNOWN',
+        action: 'DISPUTE_APPROVED_AND_SUBMITTED',
+        details: `Dispute ${dispute.externalDisputeId} approved with ${verifiedChecklist?.length ?? 4} checklist items.`,
+      }
+    );
+
+    // Transmit to processor gateway
+    await submitDisputeToProcessor(dispute.id, orgId, {
+      userId,
+      actorName: `${dispute.processor.toUpperCase()} Gateway`,
+      actorRole: 'PROCESSOR_GATEWAY',
     });
 
     await addAuditLog({
       organizationId: orgId,
-      userId: userId,
+      userId,
+      userName,
+      userRole: role || 'UNKNOWN',
       action: 'DISPUTE_APPROVED_AND_SUBMITTED',
       entityType: 'DISPUTE',
       entityId: dispute.id,
-      details: `Dispute package for ${dispute.externalDisputeId} ($${parseFloat(dispute.amount.toString()).toFixed(2)}) approved by ${userName} & transmitted to ${dispute.processor.toUpperCase()} gateway. Checklist items confirmed: ${verifiedChecklist?.length || 4}.`,
-    } as any);
+      details: `Evidence package for ${dispute.externalDisputeId} ($${dispute.amount.toFixed(2)}) approved and transmitted to ${dispute.processor.toUpperCase()}.`,
+    });
 
     await addNotification({
       organizationId: orgId,
       title: `Dispute Submitted: ${dispute.externalDisputeId}`,
-      message: `Evidence package of $${parseFloat(dispute.amount.toString()).toFixed(2)} was successfully sent to ${dispute.processor.toUpperCase()} for acquiring review.`,
+      message: `Evidence package of $${dispute.amount.toFixed(2)} was sent to ${dispute.processor.toUpperCase()} for acquiring review.`,
       type: 'APPROVAL_NEEDED',
       severity: 'info',
       read: false,
@@ -76,7 +102,7 @@ export async function POST(
       message: 'Dispute approved and submitted to payment processor.',
       data: updated,
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error('API Error:', error);
     return NextResponse.json({ success: false, error: 'Internal Server Error' }, { status: 500 });
   }
