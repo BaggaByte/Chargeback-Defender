@@ -165,14 +165,22 @@ export async function addAuditLog(
   return newLog;
 }
 
-// Stubs for notifications as they aren't in schema
 export async function addNotification(notif: any): Promise<any> {
-  return { ...notif, id: 'notif-1', createdAt: new Date().toISOString() };
+  const [newNotif] = await db.insert(schema.notifications).values(notif).returning();
+  return newNotif;
 }
 export async function markNotificationAsRead(id: string): Promise<boolean> {
-  return true;
+  const [updated] = await db.update(schema.notifications)
+    .set({ read: true })
+    .where(eq(schema.notifications.id, id))
+    .returning();
+  return !!updated;
 }
-export async function markAllNotificationsRead(): Promise<void> {}
+export async function markAllNotificationsRead(organizationId: string): Promise<void> {
+  await db.update(schema.notifications)
+    .set({ read: true })
+    .where(eq(schema.notifications.organizationId, organizationId));
+}
 
 export async function createDispute(data: {
   organizationId: string;

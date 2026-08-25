@@ -1,5 +1,6 @@
 import { db } from './src/db';
 import { organizations, users, customers, orders, disputes, evidence, integrations } from './src/db/schema';
+import bcrypt from 'bcryptjs';
 
 async function seed() {
   console.log('Seeding database...');
@@ -18,9 +19,12 @@ async function seed() {
     slug: 'acme-saas',
   }).returning();
 
+  const defaultPasswordHash = await bcrypt.hash('Password123!', 10);
+
   const [admin] = await db.insert(users).values({
     organizationId: org.id,
     email: 'admin@example.com',
+    passwordHash: defaultPasswordHash,
     fullName: 'Admin User',
     role: 'ADMIN',
   }).returning();
@@ -28,6 +32,7 @@ async function seed() {
   const [operator] = await db.insert(users).values({
     organizationId: org.id,
     email: 'operator@acme.com',
+    passwordHash: defaultPasswordHash,
     fullName: 'Operator User',
     role: 'OPERATOR',
   }).returning();

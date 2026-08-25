@@ -16,6 +16,11 @@ export async function POST(
     const userId = session.user.id;
     const userName = session.user.name || 'Unknown User';
     
+    const role = (session.user as any).role;
+    if (role === 'OPERATOR') {
+      return NextResponse.json({ success: false, error: 'Forbidden: Operators cannot approve disputes' }, { status: 403 });
+    }
+
     if (!orgId) {
       return NextResponse.json({ success: false, error: 'User does not belong to an organization' }, { status: 403 });
     }
@@ -45,7 +50,6 @@ export async function POST(
       // approvedByUserId: userId,
       // approvalNotes: approvalNotes || 'Reviewed and verified against card brand rules.',
       // approvedAt: now,
-      resolvedAt: now,
     });
 
     await addAuditLog({

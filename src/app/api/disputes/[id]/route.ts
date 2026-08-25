@@ -43,6 +43,12 @@ export async function PATCH(
 
     const orgId = (session.user as any).organizationId;
     const userId = session.user.id;
+    const role = (session.user as any).role;
+    
+    if (role === 'OPERATOR') {
+      return NextResponse.json({ success: false, error: 'Forbidden: Operators cannot update disputes' }, { status: 403 });
+    }
+
     if (!orgId) {
       return NextResponse.json({ success: false, error: 'User does not belong to an organization' }, { status: 403 });
     }

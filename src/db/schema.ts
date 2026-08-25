@@ -16,6 +16,7 @@ export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
   organizationId: uuid('organization_id').references(() => organizations.id).notNull(),
   email: varchar('email', { length: 255 }).unique().notNull(),
+  passwordHash: varchar('password_hash', { length: 255 }).notNull(),
   fullName: varchar('full_name', { length: 255 }).notNull(),
   role: UserRole('role').default('OPERATOR').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
@@ -90,4 +91,16 @@ export const integrations = pgTable('integrations', {
   status: varchar('status', { length: 50 }).default('active').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const notifications = pgTable('notifications', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  organizationId: uuid('organization_id').references(() => organizations.id).notNull(),
+  title: varchar('title', { length: 255 }).notNull(),
+  message: text('message').notNull(),
+  type: varchar('type', { length: 50 }).notNull(),
+  severity: varchar('severity', { length: 50 }).default('info').notNull(),
+  read: boolean('read').default(false).notNull(),
+  linkUrl: text('link_url'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
 });
