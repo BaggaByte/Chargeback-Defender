@@ -456,6 +456,7 @@ export interface CreateDisputeInput {
   cardBrand?: string;
   cardLast4?: string;
   reasonCode?: string;
+  externalDisputeId?: string;
 }
 
 export async function createDispute(data: CreateDisputeInput): Promise<DisputeRecord> {
@@ -500,7 +501,7 @@ export async function createDispute(data: CreateDisputeInput): Promise<DisputeRe
       createdAt: new Date().toISOString(),
     };
 
-    const extId = `dp_${data.processor ?? "stripe"}_${Math.random().toString(36).substring(2, 10)}`;
+    const extId = data.externalDisputeId ?? `dp_${data.processor ?? "stripe"}_${Math.random().toString(36).substring(2, 10)}`;
     const newDispute: DisputeRecord = {
       id: `dsp-${Date.now()}`,
       organizationId: SEED_ORG_ID,
@@ -602,7 +603,7 @@ export async function createDispute(data: CreateDisputeInput): Promise<DisputeRe
     })
     .returning();
 
-  const extId = `dp_${data.processor ?? "stripe"}_${Math.random().toString(36).substring(2, 10)}`;
+  const extId = data.externalDisputeId ?? `dp_${data.processor ?? "stripe"}_${Math.random().toString(36).substring(2, 10)}`;
   const [disputeRow] = await db
     .insert(schema.disputes)
     .values({

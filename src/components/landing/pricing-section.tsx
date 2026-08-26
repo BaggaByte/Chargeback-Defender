@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { Check, ArrowRight } from 'lucide-react';
+import { FadeIn, StaggerContainer, StaggerItem } from './fade-in';
 
 export function PricingSection() {
   const [annual, setAnnual] = useState(true);
@@ -63,7 +64,7 @@ export function PricingSection() {
   return (
     <section id="pricing" className="bg-white">
       <div className="mx-auto max-w-7xl px-6 py-20 lg:px-8 lg:py-28">
-        <div className="mx-auto max-w-2xl text-center">
+        <FadeIn delay={0.1} direction="up" className="mx-auto max-w-2xl text-center">
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-brand-700">
             Pricing
           </p>
@@ -95,13 +96,13 @@ export function PricingSection() {
               <span className="ml-1.5 text-xs text-brand-700">−20%</span>
             </button>
           </div>
-        </div>
+        </FadeIn>
 
-        <div className="mt-12 grid gap-6 lg:grid-cols-3">
+        <StaggerContainer delayOffset={0.2} className="mt-12 grid gap-6 lg:grid-cols-3">
           {plans.map((plan) => (
-            <div
+            <StaggerItem
               key={plan.id}
-              className={`relative flex flex-col rounded-xl p-7 ${
+              className={`relative flex h-full flex-col rounded-xl p-7 ${
                 plan.highlight
                   ? 'border-2 border-ink-900 bg-white shadow-[0_12px_32px_-12px_rgb(15_23_42/0.2)]'
                   : 'border border-ink-200 bg-white shadow-[0_1px_2px_rgb(15_23_42/0.04)]'
@@ -150,9 +151,9 @@ export function PricingSection() {
                 {plan.cta}
                 <ArrowRight className="h-3.5 w-3.5" />
               </Link>
-            </div>
+            </StaggerItem>
           ))}
-        </div>
+        </StaggerContainer>
 
         <p className="mt-10 text-center text-xs text-ink-500">
           Performance plan fees apply only to disputes resolved in your favor. Volume tiers for

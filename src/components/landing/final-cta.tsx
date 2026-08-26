@@ -3,6 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
+import { FadeIn } from './fade-in';
 
 export function FinalCta() {
   return (
@@ -11,7 +12,7 @@ export function FinalCta() {
         aria-hidden
         className="pointer-events-none absolute inset-0 [background:radial-gradient(55%_80%_at_50%_100%,rgba(37,87,235,0.3)_0%,transparent_70%)]"
       />
-      <div className="relative mx-auto max-w-7xl px-6 py-20 text-center lg:px-8 lg:py-24">
+      <FadeIn delay={0.1} direction="up" className="relative mx-auto max-w-7xl px-6 py-20 text-center lg:px-8 lg:py-24">
         <h2 className="mx-auto max-w-2xl text-3xl font-semibold tracking-tight text-white sm:text-4xl">
           Your next dispute can be the first one your team doesn&apos;t assemble by hand.
         </h2>
@@ -37,7 +38,7 @@ export function FinalCta() {
         <p className="mt-6 text-xs text-ink-500">
           Typical response within one business day · No card required
         </p>
-      </div>
+      </FadeIn>
     </section>
   );
 }

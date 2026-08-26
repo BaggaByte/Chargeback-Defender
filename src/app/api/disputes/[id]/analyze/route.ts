@@ -1,0 +1,66 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { getDisputeById, updateDispute, addAuditLog, addNotification } from '@/db';
+import { AIEngine } from '@/lib/ai/engine';
+import { auth } from '@/auth';
+
+export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+  try {
+    const session = await auth();
+    const orgId = session?.user
+      ? (session.user as { organizationId?: string }).organizationId
+      : 'org-1'; // Default for local dev without auth
+
+    if (!orgId) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { id: disputeId } = await params;
+    const dispute = await getDisputeById(disputeId, orgId);
+
+    if (!dispute) {
+      return NextResponse.json({ success: false, error: 'Dispute not found' }, { status: 404 });
+    }
+
+    const aiEngine = new AIEngine();
+    const analysis = await aiEngine.analyzeDispute(dispute);
+
+    // Update dispute with AI insights
+    const updatedDispute = await updateDispute(
+      dispute.id,
+      orgId,
+      {
+        winProbability: analysis.winProbability,
+        evidenceStrengthScore: analysis.evidenceStrengthScore,
+        rebuttalLetter: analysis.rebuttalLetter,
+        rebuttalTone: analysis.rebuttalTone,
+        status: 'PENDING_APPROVAL',
+        aiAnalysis: analysis,
+      }
+    );
+
+    await addAuditLog({
+      organizationId: orgId,
+      userName: 'AI Analyst',
+      userRole: 'SYSTEM',
+      action: 'AI_ANALYSIS_COMPLETED',
+      entityType: 'DISPUTE',
+      entityId: dispute.id,
+      details: `AI completed analysis. Win probability: ${analysis.winProbability}%`,
+    });
+
+    await addNotification({
+      organizationId: orgId,
+      title: 'AI Analysis Ready',
+      message: `Analysis complete for ${dispute.externalDisputeId}. Draft ready for review.`,
+      type: 'DISPUTE_UPDATE',
+      severity: 'info',
+      read: false,
+      linkUrl: `/disputes/${dispute.id}`,
+    });
+
+    return NextResponse.json({ success: true, dispute: updatedDispute });
+  } catch (error: any) {
+    console.error('Analyze API Error:', error);
+    return NextResponse.json({ success: false, error: 'Internal Server Error' }, { status: 500 });
+  }
+}

@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { TimerOff, Scissors, TrendingDown } from 'lucide-react';
+import { FadeIn, StaggerContainer, StaggerItem } from './fade-in';
 
 const costs = [
   {
@@ -31,7 +32,7 @@ export function ProblemSection() {
   return (
     <section className="bg-white">
       <div className="mx-auto max-w-7xl px-6 py-20 lg:px-8 lg:py-28">
-        <div className="max-w-2xl">
+        <FadeIn delay={0.1} direction="up" className="max-w-2xl">
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-brand-700">
             The cost of inaction
           </p>
@@ -42,25 +43,26 @@ export function ProblemSection() {
             A representment that arrives late, cites the wrong network rule, or omits one piece of
             corroborating evidence loses by default. The pattern is consistent — and avoidable.
           </p>
-        </div>
+        </FadeIn>
 
-        <div className="mt-12 grid gap-5 md:grid-cols-3">
+        <StaggerContainer delayOffset={0.2} className="mt-12 grid gap-5 md:grid-cols-3">
           {costs.map((item) => (
-            <div
-              key={item.stat}
-              className="rounded-xl border border-ink-200 bg-white p-6 shadow-[0_1px_2px_rgb(15_23_42/0.04)]"
-            >
-              <div className="flex h-9 w-9 items-center justify-center rounded-md bg-brand-50 ring-1 ring-inset ring-brand-100">
-                <item.icon className="h-4.5 w-4.5 text-brand-700" />
+            <StaggerItem key={item.stat}>
+              <div
+                className="h-full rounded-xl border border-ink-200 bg-white p-6 shadow-[0_1px_2px_rgb(15_23_42/0.04)]"
+              >
+                <div className="flex h-9 w-9 items-center justify-center rounded-md bg-brand-50 ring-1 ring-inset ring-brand-100">
+                  <item.icon className="h-4.5 w-4.5 text-brand-700" />
+                </div>
+                <div className="mt-5 text-3xl font-semibold tracking-tight text-ink-900">
+                  {item.stat}
+                </div>
+                <div className="mt-1 text-sm font-medium text-ink-700">{item.label}</div>
+                <p className="mt-3 text-sm leading-relaxed text-ink-600">{item.detail}</p>
               </div>
-              <div className="mt-5 text-3xl font-semibold tracking-tight text-ink-900">
-                {item.stat}
-              </div>
-              <div className="mt-1 text-sm font-medium text-ink-700">{item.label}</div>
-              <p className="mt-3 text-sm leading-relaxed text-ink-600">{item.detail}</p>
-            </div>
+            </StaggerItem>
           ))}
-        </div>
+        </StaggerContainer>
       </div>
     </section>
   );

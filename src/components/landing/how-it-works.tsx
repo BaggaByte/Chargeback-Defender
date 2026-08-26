@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { Plug, DatabaseZap, Send } from 'lucide-react';
+import { FadeIn, StaggerContainer, StaggerItem } from './fade-in';
 
 const steps = [
   {
@@ -31,18 +32,18 @@ export function HowItWorks() {
   return (
     <section id="how-it-works" className="border-t border-ink-200 bg-ink-50">
       <div className="mx-auto max-w-7xl px-6 py-20 lg:px-8 lg:py-28">
-        <div className="max-w-2xl">
+        <FadeIn delay={0.1} direction="up" className="max-w-2xl">
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-brand-700">
             How it works
           </p>
           <h2 className="mt-3 text-3xl font-semibold tracking-tight text-ink-900 sm:text-4xl">
             From dispute webhook to submitted representment, without the manual lift.
           </h2>
-        </div>
+        </FadeIn>
 
-        <div className="mt-12 grid gap-5 lg:grid-cols-3">
+        <StaggerContainer delayOffset={0.2} className="mt-12 grid gap-5 lg:grid-cols-3">
           {steps.map((step, i) => (
-            <div key={step.number} className="relative">
+            <StaggerItem key={step.number} className="relative">
               {i < steps.length - 1 && (
                 <div
                   aria-hidden
@@ -66,9 +67,9 @@ export function HowItWorks() {
                   {step.meta}
                 </p>
               </div>
-            </div>
+            </StaggerItem>
           ))}
-        </div>
+        </StaggerContainer>
       </div>
     </section>
   );
