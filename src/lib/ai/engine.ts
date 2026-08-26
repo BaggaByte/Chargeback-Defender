@@ -1,5 +1,6 @@
 import { AIAnalysisReport, DisputeRecord } from '@/lib/types';
 import { DISPUTE_RESPONSE_PROMPT } from './prompts';
+import { GoogleGenAI } from '@google/genai';
 
 export class AIEngine {
   async analyzeDispute(dispute: DisputeRecord): Promise<AIAnalysisReport> {
@@ -20,11 +21,43 @@ export class AIEngine {
       .replace('{{CUSTOMER_NAME}}', dispute.cardholderName)
       .replace('{{EVIDENCE_TEXT}}', evidenceText);
 
-    // Simulate AI reasoning delay
+    // Call Gemini API if key is present
+    if (process.env.GEMINI_API_KEY) {
+      try {
+        console.log('[AIEngine] Calling Gemini API...');
+        const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: prompt,
+            config: {
+                responseMimeType: 'application/json',
+            }
+        });
+
+        if (response.text) {
+          const parsed = JSON.parse(response.text);
+          return {
+            overallStrengthScore: parsed.overallStrengthScore || 50,
+            winProbabilityPercent: parsed.winProbabilityPercent || 50,
+            recommendedAction: parsed.recommendedAction || 'GATHER_MORE_EVIDENCE',
+            reasonClassification: parsed.reasonClassification || dispute.reason,
+            strengths: parsed.strengths || [],
+            vulnerabilities: parsed.vulnerabilities || [],
+            missingEvidenceRecommendations: parsed.missingEvidenceRecommendations || [],
+            suggestedRebuttalLetter: parsed.suggestedRebuttalLetter || 'Dear Issuing Bank, ...',
+            contradictionFlags: parsed.contradictionFlags || [],
+          };
+        }
+      } catch (error) {
+        console.error('[AIEngine] Gemini API call failed, falling back to mock:', error);
+      }
+    } else {
+      console.warn('[AIEngine] GEMINI_API_KEY not found. Using mock AI response.');
+    }
+
+    // Simulate AI reasoning delay for mock
     await new Promise(resolve => setTimeout(resolve, 2000));
 
-    // In a real app we'd call OpenAI/Anthropic SDK here.
-    // We mock the response for now.
     const mockWinProbability = evidenceText.length > 100 ? 88 : 45;
     
     const mockRebuttal = `Dear Issuing Bank,
