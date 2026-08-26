@@ -121,12 +121,12 @@ export async function POST(req: NextRequest) {
           console.log(`[Workflow Sim] All evidence automatically attached to dispute ${createdDispute.id}`);
           // 4. Trigger AI Analysis
           const { getDisputeById, updateDispute, addAuditLog, addNotification } = await import('@/db');
-          const { AIEngine } = await import('@/lib/ai/engine');
+          const { RocketRideExecutionClient } = await import('@/lib/rocketride/client');
           
           const fullyLoadedDispute = await getDisputeById(createdDispute.id, createdDispute.organizationId);
           if (fullyLoadedDispute) {
-            const aiEngine = new AIEngine();
-            const analysis = await aiEngine.analyzeDispute(fullyLoadedDispute);
+            const rrClient = new RocketRideExecutionClient();
+            const analysis = await rrClient.executePipeline('chargeback_defender', fullyLoadedDispute as any);
 
             await updateDispute(
               createdDispute.id,

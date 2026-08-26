@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDisputeById, updateDispute, addAuditLog, addNotification } from '@/db';
-import { AIEngine } from '@/lib/ai/engine';
+import { RocketRideExecutionClient } from '@/lib/rocketride/client';
 import { auth } from '@/auth';
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -21,8 +21,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       return NextResponse.json({ success: false, error: 'Dispute not found' }, { status: 404 });
     }
 
-    const aiEngine = new AIEngine();
-    const analysis = await aiEngine.analyzeDispute(dispute);
+    const rrClient = new RocketRideExecutionClient();
+    const analysis = await rrClient.executePipeline('chargeback_defender', dispute as any);
 
     // Update dispute with AI insights
     const updatedDispute = await updateDispute(
