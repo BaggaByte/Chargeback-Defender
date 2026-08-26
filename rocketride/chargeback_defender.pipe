@@ -1,0 +1,60 @@
+# RocketRide Portable Pipeline Definition
+# Pipeline: Chargeback Defender
+# Version: 1.0.0
+# Description: Automated chargeback defense workflow
+
+name: chargeback_defender
+version: 1.0.0
+
+nodes:
+  - id: ingress_webhook
+    type: webhook
+    config:
+      provider: stripe
+      event_types: ["charge.dispute.created"]
+    next: gather_evidence
+
+  - id: gather_evidence
+    type: extract_facts
+    config:
+      sources:
+        - type: shopify
+          extract: ["customer_purchase_ip", "billing_address", "shipping_address"]
+        - type: payment_gateway
+          extract: ["avs_verification", "cvc_verification"]
+        - type: easypost
+          extract: ["courier_signature_image", "delivery_coordinates"]
+        - type: zendesk
+          extract: ["support_chat_transcripts"]
+    next: evaluate_case
+
+  - id: evaluate_case
+    type: agent_crewai
+    # Alternative: type: llm_gemini
+    config:
+      agents:
+        - role: "Chargeback Attorney"
+          goal: "Evaluate evidence against credit card network rules (e.g. Visa Compelling Evidence 3.0 rules)."
+          task: "Calculate precise win probability percentage."
+    next: format_payload
+
+  - id: format_payload
+    type: response_json
+    config:
+      schema: stripe_evidence_api
+      # fallback: paypal_dispute_resolution
+    next: enforce_guardrails
+
+  - id: enforce_guardrails
+    type: guardrails
+    config:
+      human_signoff_required: true
+      auto_submit_threshold: 95 # auto-submits if win confidence > 95%
+    next: persist_outcome
+
+  - id: persist_outcome
+    type: memory_persistent
+    config:
+      record: ["win_loss_outcome"]
+      feedback_loop: true
+      description: "Records dispute win/loss outcomes into RocketRide persistent memory, continuously refining win-probability weights over time."
