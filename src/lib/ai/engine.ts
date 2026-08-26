@@ -44,11 +44,15 @@ Sincerely,
 Acme SaaS Merchant Team`;
 
     return {
-      winProbability: mockWinProbability,
-      rebuttalLetter: mockRebuttal,
-      rebuttalTone: 'firm',
-      suggestedNextSteps: ['Review AI drafted letter', 'Submit to Stripe'],
-      evidenceStrengthScore: mockWinProbability,
+      overallStrengthScore: mockWinProbability,
+      winProbabilityPercent: mockWinProbability,
+      recommendedAction: 'SUBMIT_DEFENSE',
+      reasonClassification: dispute.reason,
+      strengths: ['Delivery confirmation', 'AVS match'],
+      vulnerabilities: ['No previous order history'],
+      missingEvidenceRecommendations: [],
+      suggestedRebuttalLetter: mockRebuttal,
+      contradictionFlags: [],
     };
   }
 }

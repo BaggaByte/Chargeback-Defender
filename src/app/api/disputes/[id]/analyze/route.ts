@@ -3,7 +3,7 @@ import { getDisputeById, updateDispute, addAuditLog, addNotification } from '@/d
 import { AIEngine } from '@/lib/ai/engine';
 import { auth } from '@/auth';
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await auth();
     const orgId = session?.user
@@ -29,10 +29,10 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       dispute.id,
       orgId,
       {
-        winProbability: analysis.winProbability,
-        evidenceStrengthScore: analysis.evidenceStrengthScore,
-        rebuttalLetter: analysis.rebuttalLetter,
-        rebuttalTone: analysis.rebuttalTone,
+        winProbability: analysis.winProbabilityPercent,
+        evidenceStrengthScore: analysis.overallStrengthScore,
+        rebuttalLetter: analysis.suggestedRebuttalLetter,
+        rebuttalTone: 'firm',
         status: 'PENDING_APPROVAL',
         aiAnalysis: analysis,
       }
@@ -45,14 +45,14 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       action: 'AI_ANALYSIS_COMPLETED',
       entityType: 'DISPUTE',
       entityId: dispute.id,
-      details: `AI completed analysis. Win probability: ${analysis.winProbability}%`,
+      details: `AI completed analysis. Win probability: ${analysis.winProbabilityPercent}%`,
     });
 
     await addNotification({
       organizationId: orgId,
       title: 'AI Analysis Ready',
       message: `Analysis complete for ${dispute.externalDisputeId}. Draft ready for review.`,
-      type: 'DISPUTE_UPDATE',
+      type: 'APPROVAL_NEEDED',
       severity: 'info',
       read: false,
       linkUrl: `/disputes/${dispute.id}`,

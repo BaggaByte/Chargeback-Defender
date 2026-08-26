@@ -8,7 +8,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_mock', {
   apiVersion: '2023-10-16' as any,
 });
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await auth();
     let orgId = session?.user
@@ -92,7 +92,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       organizationId: orgId,
       title: 'Dispute Submitted',
       message: `Evidence for ${dispute.externalDisputeId} has been submitted to the processor.`,
-      type: 'DISPUTE_UPDATE',
+      type: 'INTEGRATION_ALERT',
       severity: 'success',
       read: false,
       linkUrl: `/disputes/${dispute.id}`,

@@ -49,8 +49,8 @@ export async function POST(req: NextRequest) {
           customerName = charge.billing_details?.name || customerName;
           
           if (charge.payment_method_details?.card) {
-            cardBrand = charge.payment_method_details.card.brand;
-            cardLast4 = charge.payment_method_details.card.last4;
+            cardBrand = (charge.payment_method_details.card.brand || 'other') as any;
+            cardLast4 = charge.payment_method_details.card.last4 || '0000';
           }
         } catch (e) {
           console.warn('Could not fetch charge details from Stripe', e);
@@ -132,10 +132,10 @@ export async function POST(req: NextRequest) {
               createdDispute.id,
               createdDispute.organizationId,
               {
-                winProbability: analysis.winProbability,
-                evidenceStrengthScore: analysis.evidenceStrengthScore,
-                rebuttalLetter: analysis.rebuttalLetter,
-                rebuttalTone: analysis.rebuttalTone,
+                winProbability: analysis.winProbabilityPercent,
+                evidenceStrengthScore: analysis.overallStrengthScore,
+                rebuttalLetter: analysis.suggestedRebuttalLetter,
+                rebuttalTone: 'firm',
                 status: 'PENDING_APPROVAL',
                 aiAnalysis: analysis as any,
               }
@@ -148,14 +148,14 @@ export async function POST(req: NextRequest) {
               action: 'AI_ANALYSIS_COMPLETED',
               entityType: 'DISPUTE',
               entityId: createdDispute.id,
-              details: `AI completed analysis. Win probability: ${analysis.winProbability}%`,
+              details: `AI completed analysis. Win probability: ${analysis.winProbabilityPercent}%`,
             });
 
             await addNotification({
               organizationId: createdDispute.organizationId,
               title: 'AI Analysis Ready',
               message: `Analysis complete for ${createdDispute.externalDisputeId}. Draft ready for review.`,
-              type: 'DISPUTE_UPDATE',
+              type: 'APPROVAL_NEEDED',
               severity: 'info',
               read: false,
               linkUrl: `/disputes/${createdDispute.id}`,
@@ -205,8 +205,8 @@ export async function POST(req: NextRequest) {
           organizationId: effectiveOrgId,
           title: `Dispute ${finalStatus}`,
           message: `Case ${dispute.id} was closed and marked as ${finalStatus}.`,
-          type: 'DISPUTE_UPDATE',
-          severity: isWon ? 'success' : 'error',
+          type: isWon ? 'DISPUTE_WON' : 'DISPUTE_LOST',
+          severity: isWon ? 'success' : 'critical',
           read: false,
           linkUrl: `/disputes/${fullyLoadedDispute.id}`,
         });
