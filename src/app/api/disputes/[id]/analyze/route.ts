@@ -22,7 +22,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
 
     const rrClient = new RocketRideExecutionClient();
-    const analysis = await rrClient.executePipeline('chargeback_defender', dispute as any);
+    const analysis = await rrClient.executePipeline('chargeback_defender', dispute);
 
     // Update dispute with AI insights
     const updatedDispute = await updateDispute(

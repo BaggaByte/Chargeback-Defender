@@ -126,7 +126,7 @@ export async function POST(req: NextRequest) {
           const fullyLoadedDispute = await getDisputeById(createdDispute.id, createdDispute.organizationId);
           if (fullyLoadedDispute) {
             const rrClient = new RocketRideExecutionClient();
-            const analysis = await rrClient.executePipeline('chargeback_defender', fullyLoadedDispute as any);
+            const analysis = await rrClient.executePipeline('chargeback_defender', fullyLoadedDispute);
 
             await updateDispute(
               createdDispute.id,
