@@ -99,7 +99,30 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       console.log(`[Submit API] Mock submission complete for ${dispute.processorDisputeId}`);
     }
 
-    // 3. Update dispute status via state machine (PENDING_APPROVAL → SUBMITTED or APPROVED → SUBMITTED)
+    // 2.5. Explicit intermediate APPROVED transition if not already approved
+    // Guarantees complete audit trail integrity: DISPUTE_APPROVED explicitly precedes DISPUTE_SUBMITTED
+    if (dispute.status !== 'APPROVED') {
+      await updateDispute(
+        dispute.id,
+        orgId,
+        {
+          status: 'APPROVED',
+          approvedByUserId: userId,
+          approvedByUserName: userName,
+          approvedAt: new Date().toISOString(),
+        },
+        {
+          userId,
+          actorName: userName,
+          actorRole: role,
+          action: 'DISPUTE_APPROVED',
+          details: `Dispute approved by ${userName} (${role}) prior to gateway submission.`,
+        }
+      );
+      console.log(`[Submit API] Dispute ${dispute.id} explicitly transitioned to APPROVED`);
+    }
+
+    // 3. Update dispute status via state machine: APPROVED → SUBMITTED
     const updatedDispute = await updateDispute(
       dispute.id,
       orgId,

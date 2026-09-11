@@ -14,25 +14,55 @@ export async function GET() {
     const rrClient = new RocketRideClient();
     const clusterHealth = await rrClient.checkClusterHealth();
 
-    const pipelinesDir = path.resolve(process.cwd(), 'rocketride');
-    const files = fs.existsSync(pipelinesDir) ? fs.readdirSync(pipelinesDir) : [];
-    const pipeFiles = files.filter((f) => f.endsWith('.pipe'));
+    const searchDirs = [
+      path.resolve(process.cwd(), 'pipelines'),
+      path.resolve(process.cwd(), 'rocketride'),
+    ];
 
-    const pipelines = pipeFiles.map((file) => {
-      const fullPath = path.join(pipelinesDir, file);
-      const content = fs.readFileSync(fullPath, 'utf8');
-      const nodes = content.match(/- id:\s*([a-zA-Z0-9_-]+)/g) || [];
-      const versionMatch = content.match(/version:\s*([0-9.]+)/);
-      const nameMatch = content.match(/name:\s*([a-zA-Z0-9_-]+)/);
+    const pipelines: Array<{
+      filename: string;
+      pipelineName: string;
+      version: string;
+      nodesCount: number;
+      sizeBytes: number;
+      directory: string;
+    }> = [];
 
-      return {
-        filename: file,
-        pipelineName: nameMatch ? nameMatch[1] : file.replace('.pipe', ''),
-        version: versionMatch ? versionMatch[1] : '2.1.0',
-        nodesCount: nodes.length,
-        sizeBytes: fs.statSync(fullPath).size,
-      };
-    });
+    for (const dir of searchDirs) {
+      if (!fs.existsSync(dir)) continue;
+      const files = fs.readdirSync(dir).filter((f) => f.endsWith('.pipe'));
+      for (const file of files) {
+        const fullPath = path.join(dir, file);
+        const content = fs.readFileSync(fullPath, 'utf8');
+        let nodesCount = 0;
+        let version = '2.1.0';
+        let pipelineName = file.replace('.pipe', '');
+
+        try {
+          const parsed = JSON.parse(content);
+          if (Array.isArray(parsed.components)) {
+            nodesCount = parsed.components.length;
+            version = String(parsed.version || '1.0.0');
+          }
+        } catch {
+          const nodes = content.match(/- id:\s*([a-zA-Z0-9_-]+)/g) || [];
+          nodesCount = nodes.length;
+          const versionMatch = content.match(/version:\s*([0-9.]+)/);
+          const nameMatch = content.match(/name:\s*([a-zA-Z0-9_-]+)/);
+          if (versionMatch) version = versionMatch[1];
+          if (nameMatch) pipelineName = nameMatch[1];
+        }
+
+        pipelines.push({
+          filename: file,
+          pipelineName,
+          version,
+          nodesCount,
+          sizeBytes: fs.statSync(fullPath).size,
+          directory: path.basename(dir),
+        });
+      }
+    }
 
     return NextResponse.json({
       success: true,

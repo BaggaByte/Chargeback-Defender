@@ -446,6 +446,8 @@ export class RocketRideClient {
     let pipeContent = customPipeContent;
     if (!pipeContent) {
       const candidates = [
+        path.resolve(process.cwd(), 'pipelines', `${pipelineName}.pipe`),
+        path.resolve(process.cwd(), 'pipelines', 'dispute-analyzer.pipe'),
         path.resolve(process.cwd(), 'rocketride', `${pipelineName}.pipe`),
         path.resolve(process.cwd(), 'rocketride', 'dispute-analyzer.pipe'),
         path.resolve(process.cwd(), 'rocketride', 'chargeback_defender.pipe'),
@@ -463,11 +465,22 @@ export class RocketRideClient {
       throw new RocketRideExecutionError(`Pipeline definition not found for '${pipelineName}'.`);
     }
 
-    // 2. Count nodes and extract version
-    const nodeMatches = pipeContent.match(/- id:\s*([a-zA-Z0-9_-]+)/g) || [];
-    const nodesCount = nodeMatches.length;
-    const versionMatch = pipeContent.match(/version:\s*([0-9.]+)/);
-    const version = versionMatch ? versionMatch[1] : '2.1.0';
+    // 2. Count nodes and extract version (supports both native RocketRide JSON and YAML formats)
+    let nodesCount = 0;
+    let version = '2.1.0';
+
+    try {
+      const parsed = JSON.parse(pipeContent);
+      if (Array.isArray(parsed.components)) {
+        nodesCount = parsed.components.length;
+        version = String(parsed.version || '1.0.0');
+      }
+    } catch {
+      const nodeMatches = pipeContent.match(/- id:\s*([a-zA-Z0-9_-]+)/g) || [];
+      nodesCount = nodeMatches.length;
+      const versionMatch = pipeContent.match(/version:\s*([0-9.]+)/);
+      version = versionMatch ? versionMatch[1] : '2.1.0';
+    }
 
     // 3. If configured with live remote engine, call deploy API
     if (this.isConfigured()) {

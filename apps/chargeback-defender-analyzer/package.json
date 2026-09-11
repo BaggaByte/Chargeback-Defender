@@ -1,0 +1,57 @@
+{
+  "name": "@baggabyte/chargeback-defender-analyzer",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Chargeback Defender — dispute intelligence pipeline as a RocketRide app",
+  "license": "UNLICENSED",
+  "appManifest": {
+    "id": "REPLACE_WITH_YOUR_DEVELOPER_ID.chargeback_defender_analyzer",
+    "publisher": "Chargeback Defender Inc.",
+    "name": "Chargeback Defender — Dispute Analyzer",
+    "description": "Paste a dispute's order, evidence, and reason code to get a win-probability score and a draft rebuttal letter, scored against Visa CE 3.0 / Mastercard CE 2.0 factors.",
+    "icon": "./icon.svg",
+    "readme": "./README.md",
+    "categories": ["tools", "ai"],
+    "mode": "paywall",
+    "authenticated": true,
+    "showStatusBar": true,
+    "billing": {
+      "plans": [
+        {
+          "nickname": "Per Resolution",
+          "amountCents": 50,
+          "currency": "usd",
+          "interval": "per_use"
+        }
+      ]
+    },
+    "include": ["pipelines/dispute-analyzer.pipe"]
+  },
+  "scripts": {
+    "build": "tsc --noEmit && rsbuild build",
+    "build:prod": "rsbuild build --env-mode production",
+    "dev": "rsbuild dev",
+    "typecheck": "tsc --noEmit"
+  },
+  "browserslist": [
+    "chrome >= 81",
+    "edge >= 83",
+    "firefox >= 76",
+    "safari >= 13"
+  ],
+  "dependencies": {
+    "@module-federation/rsbuild-plugin": "^2.5.1",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "rocketride": "file:../../.rocketride/client/rocketride.tgz",
+    "shell": "file:../../.rocketride/shell/shell.tgz"
+  },
+  "devDependencies": {
+    "@rsbuild/core": "~2.0.11",
+    "@rsbuild/plugin-react": "~2.0.1",
+    "typescript": "^5.3.0",
+    "@types/react": "~18.3.31",
+    "@types/react-dom": "~18.3.7",
+    "@types/node": "^20.0.0"
+  }
+}

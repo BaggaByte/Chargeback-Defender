@@ -143,9 +143,20 @@ async function handleDisputeCreated(event: Stripe.Event, effectiveOrgId: string)
 
   console.log(`[Webhook] Dispute ${dispute.id} ingested → ${createdDispute.id}. Scheduling evidence + AI pipeline.`);
 
-  // Background pipeline: evidence collection → AI analysis → PENDING_APPROVAL
-  // NOTE: setTimeout is fire-and-forget. Replace with Inngest for durable job retries.
-  setTimeout(async () => {
+  // Resilient background pipeline: retry-with-backoff evidence collection → AI analysis → PENDING_APPROVAL
+  setTimeout(() => {
+    runPipelineWithRetry(createdDispute.id, createdDispute.organizationId).catch((pipelineErr) => {
+      console.error('[Webhook] Unhandled pipeline background error:', pipelineErr);
+    });
+  }, 1000);
+}
+
+/**
+ * Executes evidence gathering and AI pipeline with exponential retry-with-backoff.
+ * Prevents silent event drops on transient network or API failures.
+ */
+async function runPipelineWithRetry(disputeId: string, orgId: string, maxRetries = 3): Promise<void> {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       const { addEvidence, getDisputeById, updateDispute, addAuditLog, addNotification } = await import('@/db');
       const { ShopifyAdapter } = await import('@/lib/integrations/shopify');
@@ -153,53 +164,58 @@ async function handleDisputeCreated(event: Stripe.Event, effectiveOrgId: string)
       const { executeDisputeAnalysis } = await import('@/lib/ai/provider-factory');
       const { buildDisputeAIInput } = await import('@/lib/ai/types');
 
+      const loaded = await getDisputeById(disputeId, orgId);
+      if (!loaded) return;
+
       const shopify = new ShopifyAdapter();
       const easypost = new EasypostAdapter();
 
-      // 1. Order evidence
-      const order = await shopify.fetchOrder(createdDispute.order?.externalOrderId || 'ORD-DEFAULT');
-      await addEvidence({
-        disputeId: createdDispute.id,
-        type: 'ORDER_DETAILS',
-        title: 'Shopify Order Receipt',
-        content: shopify.formatAsEvidence(order),
-        sourceIntegration: 'Shopify API',
-        isAutoCollected: true,
-        confidenceScore: 99,
-      });
+      // 1. Order evidence (if not already attached)
+      if (!loaded.evidenceList || loaded.evidenceList.length === 0) {
+        const order = await shopify.fetchOrder(loaded.order?.externalOrderId || 'ORD-DEFAULT');
+        await addEvidence({
+          disputeId: loaded.id,
+          type: 'ORDER_DETAILS',
+          title: 'Shopify Order Receipt',
+          content: shopify.formatAsEvidence(order),
+          sourceIntegration: 'Shopify API',
+          isAutoCollected: true,
+          confidenceScore: 99,
+        });
 
-      // 2. Shipping / delivery evidence
-      const tracking = await easypost.fetchTracking('1Z9999999999999999');
-      await addEvidence({
-        disputeId: createdDispute.id,
-        type: 'SHIPPING_PROOF',
-        title: 'EasyPost Delivery Confirmation',
-        content: easypost.formatAsEvidence(tracking),
-        sourceIntegration: 'EasyPost API',
-        isAutoCollected: true,
-        confidenceScore: 95,
-      });
+        // 2. Shipping / delivery evidence
+        const tracking = await easypost.fetchTracking('1Z9999999999999999');
+        await addEvidence({
+          disputeId: loaded.id,
+          type: 'SHIPPING_PROOF',
+          title: 'EasyPost Delivery Confirmation',
+          content: easypost.formatAsEvidence(tracking),
+          sourceIntegration: 'EasyPost API',
+          isAutoCollected: true,
+          confidenceScore: 95,
+        });
 
-      // 3. Customer communication
-      await addEvidence({
-        disputeId: createdDispute.id,
-        type: 'CUSTOMER_COMMUNICATION',
-        title: 'Support Interaction Log',
-        content: 'Customer contacted support regarding delivery timeline. Responded same day.',
-        sourceIntegration: 'Zendesk (Mock)',
-        isAutoCollected: true,
-        confidenceScore: 90,
-      });
+        // 3. Customer communication
+        await addEvidence({
+          disputeId: loaded.id,
+          type: 'CUSTOMER_COMMUNICATION',
+          title: 'Support Interaction Log',
+          content: 'Customer contacted support regarding delivery timeline. Responded same day.',
+          sourceIntegration: 'Zendesk (Mock)',
+          isAutoCollected: true,
+          confidenceScore: 90,
+        });
+      }
 
-      // 4. AI analysis
-      const loaded = await getDisputeById(createdDispute.id, createdDispute.organizationId);
-      if (!loaded) return;
+      // 4. Reload dispute fresh with evidence & run AI analysis
+      const disputeWithEvidence = await getDisputeById(disputeId, orgId);
+      if (!disputeWithEvidence) return;
 
-      const analysis = await executeDisputeAnalysis(buildDisputeAIInput(loaded));
+      const analysis = await executeDisputeAnalysis(buildDisputeAIInput(disputeWithEvidence));
 
       await updateDispute(
-        createdDispute.id,
-        createdDispute.organizationId,
+        loaded.id,
+        orgId,
         {
           winProbability: analysis.winProbabilityPercent,
           evidenceStrengthScore: analysis.overallStrengthScore,
@@ -211,30 +227,51 @@ async function handleDisputeCreated(event: Stripe.Event, effectiveOrgId: string)
       );
 
       await addAuditLog({
-        organizationId: createdDispute.organizationId,
+        organizationId: orgId,
         userName: 'AI Pipeline',
         userRole: 'SYSTEM',
         action: 'AI_ANALYSIS_COMPLETED',
         entityType: 'DISPUTE',
-        entityId: createdDispute.id,
-        details: `AI analysis complete. Win probability: ${analysis.winProbabilityPercent}%. Verification: ${analysis.verification.passed ? 'PASSED' : 'FLAGGED'}`,
+        entityId: loaded.id,
+        details: `AI analysis complete (attempt ${attempt}). Win probability: ${analysis.winProbabilityPercent}%. Verification: ${analysis.verification.passed ? 'PASSED' : 'FLAGGED'}`,
       });
 
       await addNotification({
-        organizationId: createdDispute.organizationId,
+        organizationId: orgId,
         title: 'AI Analysis Ready',
-        message: `Analysis complete for ${createdDispute.externalDisputeId}. Ready for human review.`,
+        message: `Analysis complete for ${loaded.externalDisputeId}. Ready for human review.`,
         type: 'APPROVAL_NEEDED',
         severity: 'info',
         read: false,
-        linkUrl: `/disputes/${createdDispute.id}`,
+        linkUrl: `/disputes/${loaded.id}`,
       });
 
-      console.log(`[Webhook] Pipeline complete for dispute ${createdDispute.id} → PENDING_APPROVAL`);
-    } catch (pipelineErr) {
-      console.error('[Webhook] Evidence/AI pipeline error:', pipelineErr);
+      console.log(`[Webhook] Pipeline complete for dispute ${disputeId} on attempt ${attempt} → PENDING_APPROVAL`);
+      return;
+    } catch (err: any) {
+      console.warn(`[Webhook] Pipeline attempt ${attempt}/${maxRetries} failed for dispute ${disputeId}: ${err.message}`);
+      if (attempt < maxRetries) {
+        // Exponential backoff delay
+        await new Promise((resolve) => setTimeout(resolve, attempt * 2000));
+      } else {
+        console.error(`[Webhook] Evidence/AI pipeline completely failed for dispute ${disputeId} after ${maxRetries} attempts.`);
+        try {
+          const { addAuditLog } = await import('@/db');
+          await addAuditLog({
+            organizationId: orgId,
+            userName: 'AI Pipeline',
+            userRole: 'SYSTEM',
+            action: 'AI_ANALYSIS_FAILED',
+            entityType: 'DISPUTE',
+            entityId: disputeId,
+            details: `Automated evidence/AI analysis exhausted ${maxRetries} retries: ${err.message}`,
+          });
+        } catch {
+          // ignore logging failure
+        }
+      }
     }
-  }, 2000);
+  }
 }
 
 async function handleDisputeUpdated(event: Stripe.Event, effectiveOrgId: string) {

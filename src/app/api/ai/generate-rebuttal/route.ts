@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDisputeById, updateDispute } from '@/db';
-import { getAIProvider } from '@/lib/ai/provider-factory';
+import { executeDisputeAnalysis } from '@/lib/ai/provider-factory';
 import { buildDisputeAIInput } from '@/lib/ai/types';
 import { verifyGeneratedRebuttal } from '@/lib/ai/verification';
-import { generateRebuttalLetterWithAI } from '@/lib/gemini';
 import { auth } from '@/auth';
 
 export async function POST(req: NextRequest) {
@@ -30,25 +29,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Dispute not found' }, { status: 404 });
     }
 
-    // Generate rebuttal letter via the configured AI provider
+    // Generate rebuttal letter strictly via the centralized AI provider abstraction
     const selectedTone = tone || dispute.rebuttalTone || 'firm';
-    let letter: string;
+    const aiInput = buildDisputeAIInput(dispute);
 
-    try {
-      // Attempt letter generation via the active provider's full analysis
-      const aiInput = buildDisputeAIInput(dispute);
-      const provider = getAIProvider();
-      const result = await provider.analyzeDispute(aiInput);
-      letter = result.suggestedRebuttalLetter;
-    } catch {
-      // Graceful fallback to Gemini's dedicated rebuttal generator
-      console.warn('[generate-rebuttal] Provider-based generation failed, falling back to Gemini rebuttal generator.');
-      letter = await generateRebuttalLetterWithAI(dispute, selectedTone, customInstructions);
-    }
+    const analysis = await executeDisputeAnalysis(aiInput);
+    const letter = analysis.suggestedRebuttalLetter;
 
     // Anti-hallucination verification — ALWAYS run before persisting
-    const aiInput = buildDisputeAIInput(dispute);
-    const verification = verifyGeneratedRebuttal(aiInput, letter);
+    const verification = analysis.verification || verifyGeneratedRebuttal(aiInput, letter);
 
     if (!verification.passed) {
       console.warn(

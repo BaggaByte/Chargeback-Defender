@@ -81,7 +81,7 @@ async function runMarketplaceTests() {
     assert.strictEqual(deployment.status, 'success');
     assert.ok(deployment.deploymentId.startsWith('rr_dep_'));
     assert.strictEqual(deployment.pipelineName, 'dispute-analyzer');
-    assert.ok(deployment.nodesCount >= 8, `Expected at least 8 pipeline nodes, got ${deployment.nodesCount}`);
+    assert.ok(deployment.nodesCount >= 5, `Expected at least 5 pipeline components, got ${deployment.nodesCount}`);
     assert.ok(deployment.timestamp);
   });
 
@@ -140,6 +140,27 @@ async function runMarketplaceTests() {
     assert.ok(content.includes('extract_facts'), 'Must include extract_facts');
     assert.ok(content.includes('hallucination_guard'), 'Must include hallucination_guard');
     assert.ok(content.includes('response_json'), 'Must include response_json');
+  });
+
+  // 6. RocketRide Native Micro-Frontend & JSON Pipeline Specification
+  await test('RocketRide Native App: apps/chargeback-defender-analyzer and pipelines/ exist with correct specs', () => {
+    const appDir = path.resolve(__dirname, '../apps/chargeback-defender-analyzer');
+    assert.ok(fs.existsSync(appDir), 'apps/chargeback-defender-analyzer must exist');
+    assert.ok(fs.existsSync(path.join(appDir, 'package.json')), 'app package.json must exist');
+    assert.ok(fs.existsSync(path.join(appDir, 'src/App.tsx')), 'src/App.tsx must exist');
+    assert.ok(fs.existsSync(path.join(appDir, 'src/AppDescriptor.ts')), 'src/AppDescriptor.ts must exist');
+    assert.ok(fs.existsSync(path.join(appDir, 'rsbuild.config.mts')), 'rsbuild.config.mts must exist');
+
+    const appPkg = JSON.parse(fs.readFileSync(path.join(appDir, 'package.json'), 'utf8'));
+    assert.ok(appPkg.appManifest, 'appManifest must be present in package.json');
+    assert.strictEqual(appPkg.appManifest.name, 'Chargeback Defender — Dispute Analyzer');
+    assert.ok(appPkg.appManifest.billing?.plans?.length > 0, 'Billing plans must be configured');
+
+    const jsonPipePath = path.resolve(__dirname, '../pipelines/dispute-analyzer.pipe');
+    assert.ok(fs.existsSync(jsonPipePath), 'pipelines/dispute-analyzer.pipe must exist');
+    const jsonPipe = JSON.parse(fs.readFileSync(jsonPipePath, 'utf8'));
+    assert.ok(Array.isArray(jsonPipe.components), 'components array must be first in JSON pipeline');
+    assert.ok(jsonPipe.project_id, 'project_id required in JSON pipeline');
   });
 
   console.log(`\n========================================`);
