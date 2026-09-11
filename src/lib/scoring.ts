@@ -23,22 +23,42 @@ export function calculateEvidenceScore(dispute: DisputeRecord, evidence: Evidenc
     breakdown.push({ rule: 'Valid Shipping/Delivery Proof', points: 30 });
   }
 
+  const hasTripGps = evidence.some(e => e.type === 'TRIP_GPS_LOG');
+  if (hasTripGps) {
+    totalScore += 30;
+    breakdown.push({ rule: 'Trip GPS & Destination Geofence Log', points: 30 });
+  }
+
   const hasOrderDetails = evidence.some(e => e.type === 'ORDER_DETAILS');
   if (hasOrderDetails) {
     totalScore += 15;
     breakdown.push({ rule: 'Order Details & Invoice', points: 15 });
   }
 
-  const hasCommunication = evidence.some(e => e.type === 'CUSTOMER_COMMUNICATION' || e.type === 'ACTIVITY_LOGS');
+  const hasRideCompletion = evidence.some(e => e.type === 'RIDE_COMPLETION_CONFIRMATION');
+  if (hasRideCompletion) {
+    totalScore += 15;
+    breakdown.push({ rule: 'Ride Completion & OTP Handshake', points: 15 });
+  }
+
+  const hasCommunication = evidence.some(
+    e => e.type === 'CUSTOMER_COMMUNICATION' || e.type === 'ACTIVITY_LOGS' || e.type === 'RIDER_SESSION_CORRELATION'
+  );
   if (hasCommunication) {
     totalScore += 20;
-    breakdown.push({ rule: 'Customer Communication / IP Logs', points: 20 });
+    breakdown.push({ rule: 'Customer Communication / In-App Session Logs', points: 20 });
   }
 
   const hasTos = evidence.some(e => e.type === 'TOS_AGREEMENT');
   if (hasTos) {
     totalScore += 10;
     breakdown.push({ rule: 'TOS/Refund Policy Agreement', points: 10 });
+  }
+
+  const hasDriverVerification = evidence.some(e => e.type === 'DRIVER_VERIFICATION');
+  if (hasDriverVerification) {
+    totalScore += 10;
+    breakdown.push({ rule: 'Verified Driver Credentials & Rating', points: 10 });
   }
 
   // 2. Order Metadata (AVS/CVC)

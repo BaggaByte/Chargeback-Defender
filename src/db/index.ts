@@ -18,6 +18,12 @@ import {
   CustomerProfileData,
   OrderDetailData,
   AIAnalysisReport,
+  ConnectedAccountRecord,
+  DriverRecord,
+  RiderRecord,
+  RideRecord,
+  PayoutRecord,
+  MarketplaceLiabilityType,
 } from "@/lib/types";
 import { validateDisputeTransition } from "@/lib/dispute-state-machine";
 import {
@@ -37,6 +43,11 @@ const globalForDb = globalThis as typeof globalThis & {
   __mockIntegrationsState?: IntegrationRecord[];
   __mockNotificationsState?: NotificationItem[];
   __mockAuditLogsState?: AuditLogRecord[];
+  __mockConnectedAccountsState?: ConnectedAccountRecord[];
+  __mockDriversState?: DriverRecord[];
+  __mockRidersState?: RiderRecord[];
+  __mockRidesState?: RideRecord[];
+  __mockPayoutsState?: PayoutRecord[];
   __dbAvailable?: boolean | null;
 };
 
@@ -235,6 +246,12 @@ function mapDisputeRow(
     resolvedAt: row.resolvedAt?.toISOString(),
     createdAt: row.createdAt?.toISOString() ?? new Date().toISOString(),
     updatedAt: row.updatedAt?.toISOString() ?? new Date().toISOString(),
+    connectedAccountId: row.connectedAccountId ?? undefined,
+    rideId: row.rideId ?? undefined,
+    liabilityType: row.liabilityType as DisputeRecord["liabilityType"],
+    driverLiabilityAmount: row.driverLiabilityAmount ? parseFloat(row.driverLiabilityAmount) : 0,
+    platformLiabilityAmount: row.platformLiabilityAmount ? parseFloat(row.platformLiabilityAmount) : 0,
+    transferReversalId: row.transferReversalId ?? undefined,
     customer,
     order,
     evidenceList: evidenceList ?? [],
@@ -551,7 +568,7 @@ export async function createDispute(data: CreateDisputeInput): Promise<DisputeRe
     const extId = data.externalDisputeId ?? `dp_${data.processor ?? "stripe"}_${Math.random().toString(36).substring(2, 10)}`;
     const newDispute: DisputeRecord = {
       id: `dsp-${Date.now()}`,
-      organizationId: SEED_ORG_ID,
+      organizationId: effectiveOrgId,
       orderId: mockOrder.id,
       customerId: mockCustomer.id,
       externalDisputeId: extId,
@@ -1304,4 +1321,759 @@ export async function markStripeEventFailed(stripeEventId: string, errorMessage:
     .update(schema.stripeEvents)
     .set({ status: 'failed', error: errorMessage.slice(0, 2000), processedAt: new Date() })
     .where(eq(schema.stripeEvents.stripeEventId, stripeEventId));
+}
+
+// ==========================================
+// RIDE MARKETPLACE & STRIPE CONNECT FUNCTIONS
+// ==========================================
+
+function getMockConnectedAccounts(): ConnectedAccountRecord[] {
+  if (!globalForDb.__mockConnectedAccountsState) {
+    globalForDb.__mockConnectedAccountsState = [];
+  }
+  return globalForDb.__mockConnectedAccountsState;
+}
+
+function getMockDrivers(): DriverRecord[] {
+  if (!globalForDb.__mockDriversState) {
+    globalForDb.__mockDriversState = [];
+  }
+  return globalForDb.__mockDriversState;
+}
+
+function getMockRiders(): RiderRecord[] {
+  if (!globalForDb.__mockRidersState) {
+    globalForDb.__mockRidersState = [];
+  }
+  return globalForDb.__mockRidersState;
+}
+
+function getMockRides(): RideRecord[] {
+  if (!globalForDb.__mockRidesState) {
+    globalForDb.__mockRidesState = [];
+  }
+  return globalForDb.__mockRidesState;
+}
+
+function getMockPayouts(): PayoutRecord[] {
+  if (!globalForDb.__mockPayoutsState) {
+    globalForDb.__mockPayoutsState = [];
+  }
+  return globalForDb.__mockPayoutsState;
+}
+
+export async function createConnectedAccount(
+  data: {
+    organizationId: string;
+    stripeAccountId: string;
+    email: string;
+    accountType?: 'express' | 'custom' | 'standard';
+    country?: string;
+    defaultCurrency?: string;
+    detailsSubmitted?: boolean;
+    chargesEnabled?: boolean;
+    payoutsEnabled?: boolean;
+    status?: 'pending' | 'active' | 'restricted' | 'disabled';
+    requirements?: Record<string, any>;
+    metadata?: Record<string, any>;
+  },
+  auditActor?: { userId?: string; actorName?: string; actorRole?: string; organizationId?: string }
+): Promise<ConnectedAccountRecord> {
+  const resolvedOrgId = await resolveOrganizationId(data.organizationId);
+  const now = new Date().toISOString();
+  const dbOk = await isDbAvailable();
+
+  const record: ConnectedAccountRecord = {
+    id: `acct-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+    organizationId: resolvedOrgId,
+    stripeAccountId: data.stripeAccountId,
+    accountType: data.accountType || 'express',
+    email: data.email,
+    country: data.country || 'US',
+    defaultCurrency: data.defaultCurrency || 'USD',
+    detailsSubmitted: data.detailsSubmitted ?? false,
+    chargesEnabled: data.chargesEnabled ?? false,
+    payoutsEnabled: data.payoutsEnabled ?? false,
+    status: data.status || 'pending',
+    requirements: data.requirements || {},
+    metadata: data.metadata || {},
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  if (!dbOk) {
+    getMockConnectedAccounts().push(record);
+  } else {
+    const [inserted] = await db
+      .insert(schema.connectedAccounts)
+      .values({
+        organizationId: resolvedOrgId,
+        stripeAccountId: record.stripeAccountId,
+        accountType: record.accountType,
+        email: record.email,
+        country: record.country,
+        defaultCurrency: record.defaultCurrency,
+        detailsSubmitted: record.detailsSubmitted,
+        chargesEnabled: record.chargesEnabled,
+        payoutsEnabled: record.payoutsEnabled,
+        status: record.status,
+        requirements: record.requirements,
+        metadata: record.metadata,
+      })
+      .returning();
+    if (inserted) {
+      record.id = inserted.id;
+    }
+  }
+
+  if (auditActor) {
+    await addAuditLog({
+      organizationId: resolvedOrgId,
+      userId: auditActor.userId,
+      userName: auditActor.actorName || 'System',
+      userRole: auditActor.actorRole || 'SYSTEM',
+      action: 'CONNECTED_ACCOUNT_CREATED',
+      entityType: 'ORGANIZATION',
+      entityId: record.id,
+      details: `Registered Stripe Connect account ${record.stripeAccountId} (${record.accountType}) for ${record.email}`,
+    });
+  }
+
+  return record;
+}
+
+export async function getConnectedAccountById(
+  id: string,
+  orgId: string
+): Promise<ConnectedAccountRecord | null> {
+  const dbOk = await isDbAvailable();
+  if (!dbOk) {
+    return (
+      getMockConnectedAccounts().find(
+        (a) => a.id === id && orgMatches(a.organizationId, orgId)
+      ) || null
+    );
+  }
+
+  const [row] = await db
+    .select()
+    .from(schema.connectedAccounts)
+    .where(and(eq(schema.connectedAccounts.id, id), eq(schema.connectedAccounts.organizationId, orgId)))
+    .limit(1);
+
+  if (!row) return null;
+  return {
+    ...row,
+    accountType: row.accountType as 'express' | 'custom' | 'standard',
+    status: row.status as 'pending' | 'active' | 'restricted' | 'disabled',
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  };
+}
+
+export async function getConnectedAccountByStripeId(
+  stripeAccountId: string,
+  orgId: string
+): Promise<ConnectedAccountRecord | null> {
+  const dbOk = await isDbAvailable();
+  if (!dbOk) {
+    return (
+      getMockConnectedAccounts().find(
+        (a) => a.stripeAccountId === stripeAccountId && orgMatches(a.organizationId, orgId)
+      ) || null
+    );
+  }
+
+  const [row] = await db
+    .select()
+    .from(schema.connectedAccounts)
+    .where(
+      and(
+        eq(schema.connectedAccounts.stripeAccountId, stripeAccountId),
+        eq(schema.connectedAccounts.organizationId, orgId)
+      )
+    )
+    .limit(1);
+
+  if (!row) return null;
+  return {
+    ...row,
+    accountType: row.accountType as 'express' | 'custom' | 'standard',
+    status: row.status as 'pending' | 'active' | 'restricted' | 'disabled',
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  };
+}
+
+export async function listConnectedAccounts(orgId: string): Promise<ConnectedAccountRecord[]> {
+  const dbOk = await isDbAvailable();
+  if (!dbOk) {
+    return getMockConnectedAccounts().filter((a) => orgMatches(a.organizationId, orgId));
+  }
+
+  const rows = await db
+    .select()
+    .from(schema.connectedAccounts)
+    .where(eq(schema.connectedAccounts.organizationId, orgId))
+    .orderBy(desc(schema.connectedAccounts.createdAt));
+
+  return rows.map((row) => ({
+    ...row,
+    accountType: row.accountType as 'express' | 'custom' | 'standard',
+    status: row.status as 'pending' | 'active' | 'restricted' | 'disabled',
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  }));
+}
+
+export async function createDriver(
+  data: {
+    organizationId: string;
+    connectedAccountId: string;
+    name: string;
+    email: string;
+    phoneNumber?: string;
+    licenseNumber?: string;
+    vehicleMake?: string;
+    vehicleModel?: string;
+    vehicleYear?: number;
+    vehiclePlate?: string;
+    rating?: number;
+    totalCompletedTrips?: number;
+    status?: 'ONBOARDING' | 'ACTIVE' | 'SUSPENDED' | 'INACTIVE';
+    metadata?: Record<string, any>;
+  },
+  auditActor?: { userId?: string; actorName?: string; actorRole?: string; organizationId?: string }
+): Promise<DriverRecord> {
+  const resolvedOrgId = await resolveOrganizationId(data.organizationId);
+  const now = new Date().toISOString();
+  const dbOk = await isDbAvailable();
+
+  const record: DriverRecord = {
+    id: `drv-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+    organizationId: resolvedOrgId,
+    connectedAccountId: data.connectedAccountId,
+    name: data.name,
+    email: data.email,
+    phoneNumber: data.phoneNumber,
+    licenseNumber: data.licenseNumber,
+    vehicleMake: data.vehicleMake,
+    vehicleModel: data.vehicleModel,
+    vehicleYear: data.vehicleYear,
+    vehiclePlate: data.vehiclePlate,
+    rating: data.rating ?? 5.0,
+    totalCompletedTrips: data.totalCompletedTrips ?? 0,
+    status: data.status || 'ONBOARDING',
+    metadata: data.metadata || {},
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  if (!dbOk) {
+    getMockDrivers().push(record);
+  } else {
+    const [inserted] = await db
+      .insert(schema.drivers)
+      .values({
+        organizationId: resolvedOrgId,
+        connectedAccountId: record.connectedAccountId,
+        name: record.name,
+        email: record.email,
+        phoneNumber: record.phoneNumber,
+        licenseNumber: record.licenseNumber,
+        vehicleMake: record.vehicleMake,
+        vehicleModel: record.vehicleModel,
+        vehicleYear: record.vehicleYear,
+        vehiclePlate: record.vehiclePlate,
+        rating: record.rating.toFixed(2),
+        totalCompletedTrips: record.totalCompletedTrips,
+        status: record.status,
+        metadata: record.metadata,
+      })
+      .returning();
+    if (inserted) {
+      record.id = inserted.id;
+    }
+  }
+
+  if (auditActor) {
+    await addAuditLog({
+      organizationId: resolvedOrgId,
+      userId: auditActor.userId,
+      userName: auditActor.actorName || 'System',
+      userRole: auditActor.actorRole || 'SYSTEM',
+      action: 'DRIVER_REGISTERED',
+      entityType: 'USER',
+      entityId: record.id,
+      details: `Registered driver ${record.name} (${record.email}) with vehicle ${record.vehicleMake || ''} ${record.vehicleModel || ''}`,
+    });
+  }
+
+  return record;
+}
+
+export async function getDriverById(id: string, orgId: string): Promise<DriverRecord | null> {
+  const dbOk = await isDbAvailable();
+  if (!dbOk) {
+    return getMockDrivers().find((d) => d.id === id && orgMatches(d.organizationId, orgId)) || null;
+  }
+
+  const [row] = await db
+    .select()
+    .from(schema.drivers)
+    .where(and(eq(schema.drivers.id, id), eq(schema.drivers.organizationId, orgId)))
+    .limit(1);
+
+  if (!row) return null;
+  return {
+    ...row,
+    rating: parseFloat(row.rating),
+    vehicleYear: row.vehicleYear ?? undefined,
+    phoneNumber: row.phoneNumber ?? undefined,
+    licenseNumber: row.licenseNumber ?? undefined,
+    vehicleMake: row.vehicleMake ?? undefined,
+    vehicleModel: row.vehicleModel ?? undefined,
+    vehiclePlate: row.vehiclePlate ?? undefined,
+    status: row.status as 'ONBOARDING' | 'ACTIVE' | 'SUSPENDED' | 'INACTIVE',
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  };
+}
+
+export async function listDrivers(orgId: string): Promise<DriverRecord[]> {
+  const dbOk = await isDbAvailable();
+  if (!dbOk) {
+    return getMockDrivers().filter((d) => orgMatches(d.organizationId, orgId));
+  }
+
+  const rows = await db
+    .select()
+    .from(schema.drivers)
+    .where(eq(schema.drivers.organizationId, orgId))
+    .orderBy(desc(schema.drivers.createdAt));
+
+  return rows.map((row) => ({
+    ...row,
+    rating: parseFloat(row.rating),
+    vehicleYear: row.vehicleYear ?? undefined,
+    phoneNumber: row.phoneNumber ?? undefined,
+    licenseNumber: row.licenseNumber ?? undefined,
+    vehicleMake: row.vehicleMake ?? undefined,
+    vehicleModel: row.vehicleModel ?? undefined,
+    vehiclePlate: row.vehiclePlate ?? undefined,
+    status: row.status as 'ONBOARDING' | 'ACTIVE' | 'SUSPENDED' | 'INACTIVE',
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  }));
+}
+
+export async function createRider(
+  data: {
+    organizationId: string;
+    customerId?: string;
+    name: string;
+    email: string;
+    phoneNumber?: string;
+    rating?: number;
+    totalRidesCount?: number;
+    fraudRiskScore?: number;
+    defaultPaymentMethodId?: string;
+    metadata?: Record<string, any>;
+  },
+  auditActor?: { userId?: string; actorName?: string; actorRole?: string; organizationId?: string }
+): Promise<RiderRecord> {
+  const resolvedOrgId = await resolveOrganizationId(data.organizationId);
+  const now = new Date().toISOString();
+  const dbOk = await isDbAvailable();
+
+  const record: RiderRecord = {
+    id: `rdr-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+    organizationId: resolvedOrgId,
+    customerId: data.customerId,
+    name: data.name,
+    email: data.email,
+    phoneNumber: data.phoneNumber,
+    rating: data.rating ?? 5.0,
+    totalRidesCount: data.totalRidesCount ?? 0,
+    fraudRiskScore: data.fraudRiskScore ?? 0,
+    defaultPaymentMethodId: data.defaultPaymentMethodId,
+    metadata: data.metadata || {},
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  if (!dbOk) {
+    getMockRiders().push(record);
+  } else {
+    const [inserted] = await db
+      .insert(schema.riders)
+      .values({
+        organizationId: resolvedOrgId,
+        customerId: record.customerId,
+        name: record.name,
+        email: record.email,
+        phoneNumber: record.phoneNumber,
+        rating: record.rating.toFixed(2),
+        totalRidesCount: record.totalRidesCount,
+        fraudRiskScore: record.fraudRiskScore,
+        defaultPaymentMethodId: record.defaultPaymentMethodId,
+        metadata: record.metadata,
+      })
+      .returning();
+    if (inserted) {
+      record.id = inserted.id;
+    }
+  }
+
+  return record;
+}
+
+export async function getRiderById(id: string, orgId: string): Promise<RiderRecord | null> {
+  const dbOk = await isDbAvailable();
+  if (!dbOk) {
+    return getMockRiders().find((r) => r.id === id && orgMatches(r.organizationId, orgId)) || null;
+  }
+
+  const [row] = await db
+    .select()
+    .from(schema.riders)
+    .where(and(eq(schema.riders.id, id), eq(schema.riders.organizationId, orgId)))
+    .limit(1);
+
+  if (!row) return null;
+  return {
+    ...row,
+    customerId: row.customerId ?? undefined,
+    phoneNumber: row.phoneNumber ?? undefined,
+    defaultPaymentMethodId: row.defaultPaymentMethodId ?? undefined,
+    rating: parseFloat(row.rating),
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  };
+}
+
+export async function createRide(
+  data: {
+    organizationId: string;
+    driverId: string;
+    riderId: string;
+    orderId?: string;
+    status?: 'REQUESTED' | 'ACCEPTED' | 'ARRIVED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+    pickupAddress: string;
+    pickupLatitude: number;
+    pickupLongitude: number;
+    pickupTimestamp?: string;
+    dropoffAddress: string;
+    dropoffLatitude: number;
+    dropoffLongitude: number;
+    dropoffTimestamp?: string;
+    fareAmount: number;
+    platformFee: number;
+    driverEarnings: number;
+    tipAmount?: number;
+    currency?: string;
+    distanceMiles?: number;
+    durationMinutes?: number;
+    routePolylineHash?: string;
+    otpVerified?: boolean;
+    stripeChargeId?: string;
+    stripePaymentIntentId?: string;
+    stripeTransferId?: string;
+    telemetry?: Record<string, any>;
+  },
+  auditActor?: { userId?: string; actorName?: string; actorRole?: string; organizationId?: string }
+): Promise<RideRecord> {
+  const resolvedOrgId = await resolveOrganizationId(data.organizationId);
+  const now = new Date().toISOString();
+  const dbOk = await isDbAvailable();
+
+  const record: RideRecord = {
+    id: `ride-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+    organizationId: resolvedOrgId,
+    driverId: data.driverId,
+    riderId: data.riderId,
+    orderId: data.orderId,
+    status: data.status || 'COMPLETED',
+    pickupAddress: data.pickupAddress,
+    pickupLatitude: data.pickupLatitude,
+    pickupLongitude: data.pickupLongitude,
+    pickupTimestamp: data.pickupTimestamp || now,
+    dropoffAddress: data.dropoffAddress,
+    dropoffLatitude: data.dropoffLatitude,
+    dropoffLongitude: data.dropoffLongitude,
+    dropoffTimestamp: data.dropoffTimestamp || now,
+    fareAmount: data.fareAmount,
+    platformFee: data.platformFee,
+    driverEarnings: data.driverEarnings,
+    tipAmount: data.tipAmount ?? 0,
+    currency: data.currency || 'USD',
+    distanceMiles: data.distanceMiles,
+    durationMinutes: data.durationMinutes,
+    routePolylineHash: data.routePolylineHash,
+    otpVerified: data.otpVerified ?? true,
+    stripeChargeId: data.stripeChargeId,
+    stripePaymentIntentId: data.stripePaymentIntentId,
+    stripeTransferId: data.stripeTransferId,
+    telemetry: data.telemetry,
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  if (!dbOk) {
+    getMockRides().push(record);
+  } else {
+    const [inserted] = await db
+      .insert(schema.rides)
+      .values({
+        organizationId: resolvedOrgId,
+        driverId: record.driverId,
+        riderId: record.riderId,
+        orderId: record.orderId,
+        status: record.status,
+        pickupAddress: record.pickupAddress,
+        pickupLatitude: record.pickupLatitude.toFixed(7),
+        pickupLongitude: record.pickupLongitude.toFixed(7),
+        pickupTimestamp: record.pickupTimestamp ? new Date(record.pickupTimestamp) : null,
+        dropoffAddress: record.dropoffAddress,
+        dropoffLatitude: record.dropoffLatitude.toFixed(7),
+        dropoffLongitude: record.dropoffLongitude.toFixed(7),
+        dropoffTimestamp: record.dropoffTimestamp ? new Date(record.dropoffTimestamp) : null,
+        fareAmount: record.fareAmount.toFixed(2),
+        platformFee: record.platformFee.toFixed(2),
+        driverEarnings: record.driverEarnings.toFixed(2),
+        tipAmount: record.tipAmount.toFixed(2),
+        currency: record.currency,
+        distanceMiles: record.distanceMiles ? record.distanceMiles.toFixed(2) : null,
+        durationMinutes: record.durationMinutes,
+        routePolylineHash: record.routePolylineHash,
+        otpVerified: record.otpVerified,
+        stripeChargeId: record.stripeChargeId,
+        stripePaymentIntentId: record.stripePaymentIntentId,
+        stripeTransferId: record.stripeTransferId,
+        telemetry: record.telemetry,
+      })
+      .returning();
+    if (inserted) {
+      record.id = inserted.id;
+    }
+  }
+
+  if (auditActor) {
+    await addAuditLog({
+      organizationId: resolvedOrgId,
+      userId: auditActor.userId,
+      userName: auditActor.actorName || 'System',
+      userRole: auditActor.actorRole || 'SYSTEM',
+      action: 'RIDE_COMPLETED',
+      entityType: 'ORGANIZATION',
+      entityId: record.id,
+      details: `Ride ${record.id} logged: Fare $${record.fareAmount.toFixed(2)}, driver earnings $${record.driverEarnings.toFixed(2)}, OTP verified: ${record.otpVerified}`,
+    });
+  }
+
+  return record;
+}
+
+export async function getRideById(id: string, orgId: string): Promise<RideRecord | null> {
+  const dbOk = await isDbAvailable();
+  if (!dbOk) {
+    return getMockRides().find((r) => r.id === id && orgMatches(r.organizationId, orgId)) || null;
+  }
+
+  const [row] = await db
+    .select()
+    .from(schema.rides)
+    .where(and(eq(schema.rides.id, id), eq(schema.rides.organizationId, orgId)))
+    .limit(1);
+
+  if (!row) return null;
+  return {
+    ...row,
+    orderId: row.orderId ?? undefined,
+    pickupTimestamp: row.pickupTimestamp?.toISOString(),
+    dropoffTimestamp: row.dropoffTimestamp?.toISOString(),
+    pickupLatitude: parseFloat(row.pickupLatitude),
+    pickupLongitude: parseFloat(row.pickupLongitude),
+    dropoffLatitude: parseFloat(row.dropoffLatitude),
+    dropoffLongitude: parseFloat(row.dropoffLongitude),
+    fareAmount: parseFloat(row.fareAmount),
+    platformFee: parseFloat(row.platformFee),
+    driverEarnings: parseFloat(row.driverEarnings),
+    tipAmount: parseFloat(row.tipAmount),
+    distanceMiles: row.distanceMiles ? parseFloat(row.distanceMiles) : undefined,
+    durationMinutes: row.durationMinutes ?? undefined,
+    routePolylineHash: row.routePolylineHash ?? undefined,
+    stripeChargeId: row.stripeChargeId ?? undefined,
+    stripePaymentIntentId: row.stripePaymentIntentId ?? undefined,
+    stripeTransferId: row.stripeTransferId ?? undefined,
+    telemetry: row.telemetry as Record<string, any> | undefined,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  };
+}
+
+export async function listRides(orgId: string): Promise<RideRecord[]> {
+  const dbOk = await isDbAvailable();
+  if (!dbOk) {
+    return getMockRides().filter((r) => orgMatches(r.organizationId, orgId));
+  }
+
+  const rows = await db
+    .select()
+    .from(schema.rides)
+    .where(eq(schema.rides.organizationId, orgId))
+    .orderBy(desc(schema.rides.createdAt));
+
+  return rows.map((row) => ({
+    ...row,
+    orderId: row.orderId ?? undefined,
+    pickupTimestamp: row.pickupTimestamp?.toISOString(),
+    dropoffTimestamp: row.dropoffTimestamp?.toISOString(),
+    pickupLatitude: parseFloat(row.pickupLatitude),
+    pickupLongitude: parseFloat(row.pickupLongitude),
+    dropoffLatitude: parseFloat(row.dropoffLatitude),
+    dropoffLongitude: parseFloat(row.dropoffLongitude),
+    fareAmount: parseFloat(row.fareAmount),
+    platformFee: parseFloat(row.platformFee),
+    driverEarnings: parseFloat(row.driverEarnings),
+    tipAmount: parseFloat(row.tipAmount),
+    distanceMiles: row.distanceMiles ? parseFloat(row.distanceMiles) : undefined,
+    durationMinutes: row.durationMinutes ?? undefined,
+    routePolylineHash: row.routePolylineHash ?? undefined,
+    stripeChargeId: row.stripeChargeId ?? undefined,
+    stripePaymentIntentId: row.stripePaymentIntentId ?? undefined,
+    stripeTransferId: row.stripeTransferId ?? undefined,
+    telemetry: row.telemetry as Record<string, any> | undefined,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  }));
+}
+
+export async function createPayout(data: {
+  organizationId: string;
+  connectedAccountId: string;
+  driverId: string;
+  stripeTransferId: string;
+  amount: number;
+  currency?: string;
+  status?: 'pending' | 'paid' | 'failed' | 'reversed';
+  reversedAmount?: number;
+}): Promise<PayoutRecord> {
+  const resolvedOrgId = await resolveOrganizationId(data.organizationId);
+  const now = new Date().toISOString();
+  const dbOk = await isDbAvailable();
+
+  const record: PayoutRecord = {
+    id: `pay-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+    organizationId: resolvedOrgId,
+    connectedAccountId: data.connectedAccountId,
+    driverId: data.driverId,
+    stripeTransferId: data.stripeTransferId,
+    amount: data.amount,
+    currency: data.currency || 'USD',
+    status: data.status || 'paid',
+    reversedAmount: data.reversedAmount ?? 0,
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  if (!dbOk) {
+    getMockPayouts().push(record);
+  } else {
+    const [inserted] = await db
+      .insert(schema.payouts)
+      .values({
+        organizationId: resolvedOrgId,
+        connectedAccountId: record.connectedAccountId,
+        driverId: record.driverId,
+        stripeTransferId: record.stripeTransferId,
+        amount: record.amount.toFixed(2),
+        currency: record.currency,
+        status: record.status,
+        reversedAmount: record.reversedAmount.toFixed(2),
+      })
+      .returning();
+    if (inserted) {
+      record.id = inserted.id;
+    }
+  }
+
+  return record;
+}
+
+export async function updateDisputeMarketplaceLiability(
+  disputeId: string,
+  orgId: string,
+  liabilityData: {
+    liabilityType: MarketplaceLiabilityType;
+    driverLiabilityAmount: number;
+    platformLiabilityAmount: number;
+    transferReversalId?: string;
+    connectedAccountId?: string;
+    rideId?: string;
+  },
+  auditActor?: { userId?: string; actorName?: string; actorRole?: string; organizationId?: string }
+): Promise<DisputeRecord | null> {
+  const resolvedOrgId = await resolveOrganizationId(orgId);
+  const dbOk = await isDbAvailable();
+
+  if (!dbOk) {
+    const list = mockDisputesState();
+    const idx = list.findIndex((d) => d.id === disputeId && orgMatches(d.organizationId, orgId));
+    if (idx === -1) return null;
+
+    list[idx] = {
+      ...list[idx],
+      liabilityType: liabilityData.liabilityType,
+      driverLiabilityAmount: liabilityData.driverLiabilityAmount,
+      platformLiabilityAmount: liabilityData.platformLiabilityAmount,
+      transferReversalId: liabilityData.transferReversalId,
+      connectedAccountId: liabilityData.connectedAccountId || list[idx].connectedAccountId,
+      rideId: liabilityData.rideId || list[idx].rideId,
+      updatedAt: new Date().toISOString(),
+    };
+
+    if (auditActor) {
+      await addAuditLog({
+        organizationId: resolvedOrgId,
+        userId: auditActor.userId,
+        userName: auditActor.actorName || 'System',
+        userRole: auditActor.actorRole || 'SYSTEM',
+        action: 'MARKETPLACE_LIABILITY_ASSIGNED',
+        entityType: 'DISPUTE',
+        entityId: disputeId,
+        details: `Assigned liability ${liabilityData.liabilityType}: Driver $${liabilityData.driverLiabilityAmount.toFixed(2)}, Platform $${liabilityData.platformLiabilityAmount.toFixed(2)}${liabilityData.transferReversalId ? ` (Reversal: ${liabilityData.transferReversalId})` : ''}`,
+      });
+    }
+
+    return list[idx];
+  }
+
+  await db
+    .update(schema.disputes)
+    .set({
+      liabilityType: liabilityData.liabilityType,
+      driverLiabilityAmount: liabilityData.driverLiabilityAmount.toFixed(2),
+      platformLiabilityAmount: liabilityData.platformLiabilityAmount.toFixed(2),
+      transferReversalId: liabilityData.transferReversalId,
+      connectedAccountId: liabilityData.connectedAccountId,
+      rideId: liabilityData.rideId,
+      updatedAt: new Date(),
+    })
+    .where(and(eq(schema.disputes.id, disputeId), eq(schema.disputes.organizationId, resolvedOrgId)));
+
+  if (auditActor) {
+    await addAuditLog({
+      organizationId: resolvedOrgId,
+      userId: auditActor.userId,
+      userName: auditActor.actorName || 'System',
+      userRole: auditActor.actorRole || 'SYSTEM',
+      action: 'MARKETPLACE_LIABILITY_ASSIGNED',
+      entityType: 'DISPUTE',
+      entityId: disputeId,
+      details: `Assigned liability ${liabilityData.liabilityType}: Driver $${liabilityData.driverLiabilityAmount.toFixed(2)}, Platform $${liabilityData.platformLiabilityAmount.toFixed(2)}`,
+    });
+  }
+
+  return getDisputeById(disputeId, orgId);
 }

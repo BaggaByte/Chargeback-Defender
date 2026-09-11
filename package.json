@@ -11,7 +11,7 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "test": "tsx scripts/test-dispute-lifecycle.ts && tsx scripts/test-ai-integration.ts && tsx scripts/test-end-to-end-workflow.ts && tsx scripts/test-idempotency-and-approval-gate.ts && tsx scripts/test-rocketride-marketplace.ts"
+    "test": "tsx scripts/test-dispute-lifecycle.ts && tsx scripts/test-ai-integration.ts && tsx scripts/test-end-to-end-workflow.ts && tsx scripts/test-idempotency-and-approval-gate.ts && tsx scripts/test-rocketride-marketplace.ts && tsx scripts/test-ride-marketplace.ts"
   },
   "dependencies": {
     "@google/genai": "^2.18.0",

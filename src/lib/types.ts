@@ -10,6 +10,10 @@ export type EvidenceCategory =
   | 'IDENTITY_VERIFICATION'
   | 'ACTIVITY_LOGS'
   | 'REFUND_POLICY'
+  | 'TRIP_GPS_LOG'
+  | 'RIDE_COMPLETION_CONFIRMATION'
+  | 'DRIVER_VERIFICATION'
+  | 'RIDER_SESSION_CORRELATION'
   | 'OTHER';
 
 export type UserRoleType = 'SUPER_ADMIN' | 'RISK_MANAGER' | 'DISPUTE_ANALYST' | 'AUDITOR';
@@ -157,12 +161,22 @@ export interface DisputeRecord {
   resolvedAt?: string;
   createdAt: string;
   updatedAt: string;
+
+  // Marketplace & Connect Attributes
+  connectedAccountId?: string;
+  rideId?: string;
+  liabilityType?: MarketplaceLiabilityType;
+  driverLiabilityAmount?: number;
+  platformLiabilityAmount?: number;
+  transferReversalId?: string;
   
   // Relations
   customer?: CustomerProfileData;
   order?: OrderDetailData;
   evidenceList?: EvidenceItem[];
   aiAnalysis?: AIAnalysisReport;
+  ride?: RideRecord;
+  connectedAccount?: ConnectedAccountRecord;
 }
 
 export interface AuditLogRecord {
@@ -216,4 +230,131 @@ export interface OrganizationInfo {
   autoPilotThreshold: number;
   defaultRebuttalTone: 'firm' | 'concise' | 'detailed';
   slaWarningHours: number;
+}
+
+export type MarketplaceLiabilityType = 'PLATFORM' | 'DRIVER' | 'SPLIT' | 'UNDETERMINED';
+
+export interface ConnectedAccountRecord {
+  id: string;
+  organizationId: string;
+  stripeAccountId: string;
+  accountType: 'express' | 'custom' | 'standard';
+  email: string;
+  country: string;
+  defaultCurrency: string;
+  detailsSubmitted: boolean;
+  chargesEnabled: boolean;
+  payoutsEnabled: boolean;
+  status: 'pending' | 'active' | 'restricted' | 'disabled';
+  requirements?: Record<string, any> | null;
+  metadata?: Record<string, any> | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DriverRecord {
+  id: string;
+  organizationId: string;
+  connectedAccountId: string;
+  name: string;
+  email: string;
+  phoneNumber?: string;
+  licenseNumber?: string;
+  vehicleMake?: string;
+  vehicleModel?: string;
+  vehicleYear?: number;
+  vehiclePlate?: string;
+  rating: number;
+  totalCompletedTrips: number;
+  status: 'ONBOARDING' | 'ACTIVE' | 'SUSPENDED' | 'INACTIVE';
+  metadata?: Record<string, any> | null;
+  createdAt: string;
+  updatedAt: string;
+  connectedAccount?: ConnectedAccountRecord;
+}
+
+export interface RiderRecord {
+  id: string;
+  organizationId: string;
+  customerId?: string;
+  name: string;
+  email: string;
+  phoneNumber?: string;
+  rating: number;
+  totalRidesCount: number;
+  fraudRiskScore: number;
+  defaultPaymentMethodId?: string;
+  metadata?: Record<string, any> | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RideRecord {
+  id: string;
+  organizationId: string;
+  driverId: string;
+  riderId: string;
+  orderId?: string;
+  status: 'REQUESTED' | 'ACCEPTED' | 'ARRIVED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+  pickupAddress: string;
+  pickupLatitude: number;
+  pickupLongitude: number;
+  pickupTimestamp?: string;
+  dropoffAddress: string;
+  dropoffLatitude: number;
+  dropoffLongitude: number;
+  dropoffTimestamp?: string;
+  fareAmount: number;
+  platformFee: number;
+  driverEarnings: number;
+  tipAmount: number;
+  currency: string;
+  distanceMiles?: number;
+  durationMinutes?: number;
+  routePolylineHash?: string;
+  otpVerified: boolean;
+  stripeChargeId?: string;
+  stripePaymentIntentId?: string;
+  stripeTransferId?: string;
+  telemetry?: {
+    geofenceProximityMeters?: number;
+    destinationReached?: boolean;
+    riderDeviceIp?: string;
+    riderAppSessionId?: string;
+    driverAppSessionId?: string;
+    speedTelemetricsValid?: boolean;
+    routeDeviationFlag?: boolean;
+    [key: string]: any;
+  };
+  createdAt: string;
+  updatedAt: string;
+  driver?: DriverRecord;
+  rider?: RiderRecord;
+}
+
+export interface PayoutRecord {
+  id: string;
+  organizationId: string;
+  connectedAccountId: string;
+  driverId: string;
+  stripeTransferId: string;
+  amount: number;
+  currency: string;
+  status: 'pending' | 'paid' | 'failed' | 'reversed';
+  reversedAmount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MarketplaceLiabilityEvaluation {
+  liability: MarketplaceLiabilityType;
+  driverSharePercent: number;
+  platformSharePercent: number;
+  driverLiabilityAmount: number;
+  platformLiabilityAmount: number;
+  reversalRequired: boolean;
+  reversalAmount: number;
+  confidenceScore: number;
+  reasoning: string[];
+  recommendedAction: 'DEFEND_COMPENSATE' | 'REVERSE_DRIVER_TRANSFER' | 'ABSORB_PLATFORM_LOSS' | 'SPLIT_LIABILITY';
 }

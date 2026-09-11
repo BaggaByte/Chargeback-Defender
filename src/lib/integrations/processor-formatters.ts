@@ -11,6 +11,7 @@ export interface StripeEvidenceFormat {
   receipt?: string;
   customer_communication?: string;
   access_activity_log?: string;
+  service_documentation?: string;
   uncategorized_text?: string;
 }
 
@@ -35,6 +36,22 @@ export class StripeAdapter {
           break;
         case 'CUSTOMER_COMMUNICATION':
           formatted.customer_communication = ev.content;
+          break;
+        case 'TRIP_GPS_LOG':
+          formatted.service_documentation = (formatted.service_documentation ? formatted.service_documentation + '\n\n' : '') + ev.content;
+          break;
+        case 'RIDE_COMPLETION_CONFIRMATION':
+          if (!formatted.receipt) {
+            formatted.receipt = ev.content;
+          } else {
+            formatted.service_documentation = (formatted.service_documentation ? formatted.service_documentation + '\n\n' : '') + ev.content;
+          }
+          break;
+        case 'DRIVER_VERIFICATION':
+          formatted.service_documentation = (formatted.service_documentation ? formatted.service_documentation + '\n\n' : '') + ev.content;
+          break;
+        case 'RIDER_SESSION_CORRELATION':
+          formatted.access_activity_log = (formatted.access_activity_log ? formatted.access_activity_log + '\n\n' : '') + ev.content;
           break;
         default:
           uncategorized.push(`[${ev.title}]: ${ev.content}`);

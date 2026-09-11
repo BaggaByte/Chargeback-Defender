@@ -35,7 +35,34 @@ export const EvidenceType = pgEnum('evidence_type', [
   'SHIPPING_PROOF',
   'CUSTOMER_COMMUNICATION',
   'TOS_AGREEMENT',
+  'TRIP_GPS_LOG',
+  'RIDE_COMPLETION_CONFIRMATION',
+  'DRIVER_VERIFICATION',
+  'RIDER_SESSION_CORRELATION',
   'OTHER',
+]);
+
+export const MarketplaceLiabilityType = pgEnum('marketplace_liability_type', [
+  'PLATFORM',
+  'DRIVER',
+  'SPLIT',
+  'UNDETERMINED',
+]);
+
+export const DriverStatus = pgEnum('driver_status', [
+  'ONBOARDING',
+  'ACTIVE',
+  'SUSPENDED',
+  'INACTIVE',
+]);
+
+export const RideStatus = pgEnum('ride_status', [
+  'REQUESTED',
+  'ACCEPTED',
+  'ARRIVED',
+  'IN_PROGRESS',
+  'COMPLETED',
+  'CANCELLED',
 ]);
 
 export const organizations = pgTable('organizations', {
@@ -91,6 +118,126 @@ export const orders = pgTable('orders', {
   deliveredAt: timestamp('delivered_at'),
 });
 
+export const connectedAccounts = pgTable('connected_accounts', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  organizationId: uuid('organization_id')
+    .references(() => organizations.id)
+    .notNull(),
+  stripeAccountId: varchar('stripe_account_id', { length: 255 }).unique().notNull(),
+  accountType: varchar('account_type', { length: 50 }).default('express').notNull(),
+  email: varchar('email', { length: 255 }).notNull(),
+  country: varchar('country', { length: 2 }).default('US').notNull(),
+  defaultCurrency: varchar('default_currency', { length: 3 }).default('USD').notNull(),
+  detailsSubmitted: boolean('details_submitted').default(false).notNull(),
+  chargesEnabled: boolean('charges_enabled').default(false).notNull(),
+  payoutsEnabled: boolean('payouts_enabled').default(false).notNull(),
+  status: varchar('status', { length: 50 }).default('pending').notNull(),
+  requirements: jsonb('requirements').$type<Record<string, unknown>>(),
+  metadata: jsonb('metadata').$type<Record<string, unknown>>(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const drivers = pgTable('drivers', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  organizationId: uuid('organization_id')
+    .references(() => organizations.id)
+    .notNull(),
+  connectedAccountId: uuid('connected_account_id')
+    .references(() => connectedAccounts.id)
+    .notNull(),
+  name: varchar('name', { length: 255 }).notNull(),
+  email: varchar('email', { length: 255 }).notNull(),
+  phoneNumber: varchar('phone_number', { length: 50 }),
+  licenseNumber: varchar('license_number', { length: 100 }),
+  vehicleMake: varchar('vehicle_make', { length: 100 }),
+  vehicleModel: varchar('vehicle_model', { length: 100 }),
+  vehicleYear: integer('vehicle_year'),
+  vehiclePlate: varchar('vehicle_plate', { length: 50 }),
+  rating: numeric('rating', { precision: 3, scale: 2 }).default('5.00').notNull(),
+  totalCompletedTrips: integer('total_completed_trips').default(0).notNull(),
+  status: DriverStatus('status').default('ONBOARDING').notNull(),
+  metadata: jsonb('metadata').$type<Record<string, unknown>>(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const riders = pgTable('riders', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  organizationId: uuid('organization_id')
+    .references(() => organizations.id)
+    .notNull(),
+  customerId: uuid('customer_id').references(() => customers.id),
+  name: varchar('name', { length: 255 }).notNull(),
+  email: varchar('email', { length: 255 }).notNull(),
+  phoneNumber: varchar('phone_number', { length: 50 }),
+  rating: numeric('rating', { precision: 3, scale: 2 }).default('5.00').notNull(),
+  totalRidesCount: integer('total_rides_count').default(0).notNull(),
+  fraudRiskScore: integer('fraud_risk_score').default(0).notNull(),
+  defaultPaymentMethodId: varchar('default_payment_method_id', { length: 255 }),
+  metadata: jsonb('metadata').$type<Record<string, unknown>>(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const rides = pgTable('rides', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  organizationId: uuid('organization_id')
+    .references(() => organizations.id)
+    .notNull(),
+  driverId: uuid('driver_id')
+    .references(() => drivers.id)
+    .notNull(),
+  riderId: uuid('rider_id')
+    .references(() => riders.id)
+    .notNull(),
+  orderId: uuid('order_id').references(() => orders.id),
+  status: RideStatus('status').default('REQUESTED').notNull(),
+  pickupAddress: text('pickup_address').notNull(),
+  pickupLatitude: numeric('pickup_latitude', { precision: 10, scale: 7 }).notNull(),
+  pickupLongitude: numeric('pickup_longitude', { precision: 10, scale: 7 }).notNull(),
+  pickupTimestamp: timestamp('pickup_timestamp'),
+  dropoffAddress: text('dropoff_address').notNull(),
+  dropoffLatitude: numeric('dropoff_latitude', { precision: 10, scale: 7 }).notNull(),
+  dropoffLongitude: numeric('dropoff_longitude', { precision: 10, scale: 7 }).notNull(),
+  dropoffTimestamp: timestamp('dropoff_timestamp'),
+  fareAmount: numeric('fare_amount', { precision: 10, scale: 2 }).notNull(),
+  platformFee: numeric('platform_fee', { precision: 10, scale: 2 }).notNull(),
+  driverEarnings: numeric('driver_earnings', { precision: 10, scale: 2 }).notNull(),
+  tipAmount: numeric('tip_amount', { precision: 10, scale: 2 }).default('0.00').notNull(),
+  currency: varchar('currency', { length: 3 }).default('USD').notNull(),
+  distanceMiles: numeric('distance_miles', { precision: 6, scale: 2 }),
+  durationMinutes: integer('duration_minutes'),
+  routePolylineHash: varchar('route_polyline_hash', { length: 255 }),
+  otpVerified: boolean('otp_verified').default(false).notNull(),
+  stripeChargeId: varchar('stripe_charge_id', { length: 255 }),
+  stripePaymentIntentId: varchar('stripe_payment_intent_id', { length: 255 }),
+  stripeTransferId: varchar('stripe_transfer_id', { length: 255 }),
+  telemetry: jsonb('telemetry').$type<Record<string, unknown>>(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const payouts = pgTable('payouts', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  organizationId: uuid('organization_id')
+    .references(() => organizations.id)
+    .notNull(),
+  connectedAccountId: uuid('connected_account_id')
+    .references(() => connectedAccounts.id)
+    .notNull(),
+  driverId: uuid('driver_id')
+    .references(() => drivers.id)
+    .notNull(),
+  stripeTransferId: varchar('stripe_transfer_id', { length: 255 }).unique().notNull(),
+  amount: numeric('amount', { precision: 10, scale: 2 }).notNull(),
+  currency: varchar('currency', { length: 3 }).default('USD').notNull(),
+  status: varchar('status', { length: 50 }).default('paid').notNull(),
+  reversedAmount: numeric('reversed_amount', { precision: 10, scale: 2 }).default('0.00').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
 export const disputes = pgTable('disputes', {
   id: uuid('id').primaryKey().defaultRandom(),
   organizationId: uuid('organization_id')
@@ -100,6 +247,12 @@ export const disputes = pgTable('disputes', {
     .references(() => orders.id)
     .notNull(),
   customerId: uuid('customer_id').references(() => customers.id),
+  connectedAccountId: uuid('connected_account_id').references(() => connectedAccounts.id),
+  rideId: uuid('ride_id').references(() => rides.id),
+  liabilityType: MarketplaceLiabilityType('liability_type').default('UNDETERMINED'),
+  driverLiabilityAmount: numeric('driver_liability_amount', { precision: 10, scale: 2 }).default('0.00'),
+  platformLiabilityAmount: numeric('platform_liability_amount', { precision: 10, scale: 2 }).default('0.00'),
+  transferReversalId: varchar('transfer_reversal_id', { length: 255 }),
   externalDisputeId: varchar('external_dispute_id', { length: 255 }).notNull(),
   processorDisputeId: varchar('processor_dispute_id', { length: 255 }),
   processor: varchar('processor', { length: 50 }).notNull(),
