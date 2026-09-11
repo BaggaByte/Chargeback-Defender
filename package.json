@@ -13,7 +13,8 @@
     "db:studio": "drizzle-kit studio",
     "test": "tsx scripts/test-stripe-webhook.ts && tsx scripts/test-dispute-lifecycle.ts && tsx scripts/test-ai-integration.ts && tsx scripts/test-end-to-end-workflow.ts && tsx scripts/test-idempotency-and-approval-gate.ts && tsx scripts/test-rocketride-marketplace.ts && tsx scripts/test-ride-marketplace.ts",
     "check:rocketride": "npx tsx scripts/check-rocketride.ts",
-    "demo": "tsx scripts/demo-live-ingestion.ts"
+    "demo": "tsx scripts/demo-live-ingestion.ts",
+    "trigger:stripe": "tsx scripts/trigger-stripe-dispute.ts"
   },
   "dependencies": {
     "@google/genai": "^2.18.0",
