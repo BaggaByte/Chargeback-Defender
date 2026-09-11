@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1789117147627,
+      "tag": "0000_wonderful_lila_cheney",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1789117627970,
+      "tag": "0001_needy_texas_twister",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1789119090516,
+      "tag": "0002_add_stripe_events_idempotency",
+      "breakpoints": true
+    }
+  ]
+}

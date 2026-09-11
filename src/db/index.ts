@@ -19,6 +19,7 @@ import {
   OrderDetailData,
   AIAnalysisReport,
 } from "@/lib/types";
+import { validateDisputeTransition } from "@/lib/dispute-state-machine";
 import {
   mockDisputes,
   mockIntegrations,
@@ -41,11 +42,14 @@ const globalForDb = globalThis as typeof globalThis & {
 
 export const pool =
   globalForDb.__arenaNextJsPostgresqlPool ??
-  new Pool({ connectionString: databaseUrl });
+  new Pool({
+    connectionString: databaseUrl,
+    max: process.env.DB_MAX_CONNECTIONS ? parseInt(process.env.DB_MAX_CONNECTIONS, 10) : 10,
+    connectionTimeoutMillis: 5000,
+    idleTimeoutMillis: 30000,
+  });
 
-if (process.env.NODE_ENV !== "production") {
-  globalForDb.__arenaNextJsPostgresqlPool = pool;
-}
+globalForDb.__arenaNextJsPostgresqlPool = pool;
 
 export const db = drizzle(pool, { schema });
 
@@ -380,6 +384,14 @@ export async function updateDispute(
   updates: Record<string, unknown>,
   audit?: AuditContext
 ): Promise<DisputeRecord | null> {
+  const currentDispute = await getDisputeById(id, orgId);
+  if (!currentDispute) return null;
+
+  // Enforce server-side state machine rules on status updates
+  if (updates.status && updates.status !== currentDispute.status) {
+    validateDisputeTransition(currentDispute.status, updates.status as string);
+  }
+
   const dbOk = await isDbAvailable();
   const resolvedOrgId = dbOk ? await resolveOrganizationId(orgId) : orgId;
 
@@ -399,12 +411,26 @@ export async function updateDispute(
       (d) => orgMatches(d.organizationId, orgId) && d.id === id
     );
     if (idx === -1) return null;
+    const prevStatus = mockDisputesState()[idx].status;
     mockDisputesState()[idx] = {
       ...mockDisputesState()[idx],
       ...updates,
       updatedAt: new Date().toISOString(),
     } as DisputeRecord;
-    if (audit) {
+
+    if (updates.status && updates.status !== prevStatus) {
+      await addAuditLog({
+        organizationId: orgId,
+        userId: audit?.userId,
+        userName: audit?.actorName ?? "System",
+        userRole: audit?.actorRole ?? "SYSTEM",
+        action: "DISPUTE_STATUS_CHANGED",
+        entityType: "DISPUTE",
+        entityId: id,
+        details: `Dispute status transitioned from '${prevStatus}' to '${updates.status}'`,
+        ipAddress: audit?.ipAddress ?? "127.0.0.1",
+      });
+    } else if (audit) {
       await addAuditLog({
         organizationId: orgId,
         userId: audit.userId,
@@ -428,7 +454,19 @@ export async function updateDispute(
 
   if (!updated) return null;
 
-  if (audit) {
+  if (updates.status && updates.status !== currentDispute.status) {
+    await addAuditLog({
+      organizationId: resolvedOrgId,
+      userId: audit?.userId,
+      userName: audit?.actorName ?? "System",
+      userRole: audit?.actorRole ?? "SYSTEM",
+      action: "DISPUTE_STATUS_CHANGED",
+      entityType: "DISPUTE",
+      entityId: id,
+      details: `Dispute status transitioned from '${currentDispute.status}' to '${updates.status}'`,
+      ipAddress: audit?.ipAddress ?? "127.0.0.1",
+    });
+  } else if (audit) {
     await addAuditLog({
       organizationId: resolvedOrgId,
       userId: audit.userId,
@@ -465,6 +503,15 @@ export async function createDispute(data: CreateDisputeInput): Promise<DisputeRe
     ? await resolveOrganizationId(data.organizationId)
     : normalizeOrgId(data.organizationId);
   const effectiveOrgId = dbOk ? resolvedOrgId : normalizeOrgId(data.organizationId);
+
+  // IDEMPOTENCY: Check if dispute already exists for this organization & external identifier
+  if (data.externalDisputeId) {
+    const existing = await getDisputeById(data.externalDisputeId, effectiveOrgId);
+    if (existing) {
+      console.log(`[Idempotency] Dispute ${data.externalDisputeId} already exists. Returning existing record.`);
+      return existing;
+    }
+  }
 
   if (!dbOk) {
     const mockCustomer = mockCustomers.find((c) => c.email === data.customerEmail) ?? {
@@ -1179,3 +1226,82 @@ export async function submitDisputeToProcessor(
   return updated;
 }
 
+// ---------------------------------------------------------------------------
+// Stripe event idempotency helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * In-memory fallback for when PostgreSQL is unavailable (local dev / mock mode).
+ * Prevents duplicate processing within the same process lifetime.
+ */
+const _mockProcessedEvents = new Set<string>();
+
+/**
+ * Mark a Stripe event as "processing" by inserting it into the stripe_events table.
+ *
+ * @throws if the event has already been recorded (unique constraint violation).
+ *         The caller MUST catch this and return HTTP 200 without reprocessing.
+ */
+export async function beginStripeEvent(stripeEventId: string, eventType: string): Promise<void> {
+  const dbOk = await isDbAvailable();
+
+  if (!dbOk) {
+    // Mock-mode: use an in-memory Set as the idempotency guard
+    if (_mockProcessedEvents.has(stripeEventId)) {
+      throw new Error(`[DUPLICATE_EVENT] ${stripeEventId}`);
+    }
+    _mockProcessedEvents.add(stripeEventId);
+    return;
+  }
+
+  try {
+    await db.insert(schema.stripeEvents).values({
+      stripeEventId,
+      eventType,
+      status: 'processing',
+    });
+  } catch (err: any) {
+    // Postgres unique violation code is '23505'
+    const isDuplicate =
+      err?.code === '23505' ||
+      err?.message?.includes('unique') ||
+      err?.message?.includes('stripe_events_stripe_event_id_unique');
+
+    if (isDuplicate) {
+      throw new Error(`[DUPLICATE_EVENT] ${stripeEventId}`);
+    }
+    throw err;
+  }
+}
+
+/**
+ * Mark a previously-inserted Stripe event as successfully processed.
+ */
+export async function markStripeEventProcessed(stripeEventId: string): Promise<void> {
+  const dbOk = await isDbAvailable();
+  if (!dbOk) return; // mock mode — in-memory Set is sufficient
+
+  await db
+    .update(schema.stripeEvents)
+    .set({ status: 'processed', processedAt: new Date() })
+    .where(eq(schema.stripeEvents.stripeEventId, stripeEventId));
+}
+
+/**
+ * Mark a Stripe event as failed and record the error message.
+ * Does NOT remove the row — the UNIQUE constraint stays in place so the event
+ * is not re-attempted silently on the next delivery.
+ */
+export async function markStripeEventFailed(stripeEventId: string, errorMessage: string): Promise<void> {
+  const dbOk = await isDbAvailable();
+  if (!dbOk) {
+    // In mock mode, remove from Set so the event could be retried manually if needed
+    _mockProcessedEvents.delete(stripeEventId);
+    return;
+  }
+
+  await db
+    .update(schema.stripeEvents)
+    .set({ status: 'failed', error: errorMessage.slice(0, 2000), processedAt: new Date() })
+    .where(eq(schema.stripeEvents.stripeEventId, stripeEventId));
+}

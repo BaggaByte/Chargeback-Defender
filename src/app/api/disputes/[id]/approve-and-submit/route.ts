@@ -7,6 +7,7 @@ import {
   submitDisputeToProcessor,
 } from '@/db';
 import { auth } from '@/auth';
+import { evaluateApprovalGate } from '@/lib/approval-gate';
 
 export async function POST(
   req: NextRequest,
@@ -23,26 +24,50 @@ export async function POST(
     const userName = session.user.name || 'Unknown User';
     const role = (session.user as { role?: string }).role;
 
-    if (role === 'OPERATOR') {
-      return NextResponse.json({ success: false, error: 'Forbidden: Operators cannot approve disputes' }, { status: 403 });
-    }
-
     if (!orgId) {
-      return NextResponse.json({ success: false, error: 'User does not belong to an organization' }, { status: 403 });
+      return NextResponse.json(
+        { success: false, error: 'User does not belong to an organization' },
+        { status: 403 }
+      );
     }
 
     const resolvedParams = await Promise.resolve(params);
-    const body = await req.json();
-    const { approvalNotes, verifiedChecklist } = body;
+    const body = await req.json().catch(() => ({}));
+    const { approvalNotes } = body;
+    // NOTE: client-supplied checklist booleans are intentionally ignored —
+    //       the server calculates readiness from the database state.
 
     const dispute = await getDisputeById(resolvedParams.id, orgId);
     if (!dispute) {
       return NextResponse.json({ success: false, error: 'Dispute not found' }, { status: 404 });
     }
 
-    if (dispute.status === 'SUBMITTED' || dispute.status === 'WON' || dispute.status === 'LOST') {
+    // --- Server-side Approval Gate ---
+    const gate = evaluateApprovalGate(dispute, { userId, orgId, role });
+
+    if (!gate.canApprove) {
+      // Log the attempt so it is auditable even when denied
+      await addAuditLog({
+        organizationId: orgId,
+        userId,
+        userName,
+        userRole: role || 'UNKNOWN',
+        action: 'DISPUTE_APPROVAL_DENIED',
+        entityType: 'DISPUTE',
+        entityId: dispute.id,
+        details: gate.summary,
+      });
+
       return NextResponse.json(
-        { success: false, error: `Dispute is already ${dispute.status}` },
+        {
+          success: false,
+          error: 'Approval requirements not met',
+          gate: {
+            canApprove: false,
+            summary: gate.summary,
+            checks: gate.checks,
+          },
+        },
         { status: 400 }
       );
     }
@@ -56,7 +81,8 @@ export async function POST(
         status: 'SUBMITTED',
         approvedByUserName: userName,
         approvedByUserId: userId,
-        approvalNotes: approvalNotes || 'Reviewed and verified against card brand rules.',
+        approvalNotes:
+          approvalNotes || 'Evidence reviewed and verified against card brand rules.',
         approvedAt: now,
         submittedAt: now,
       },
@@ -65,11 +91,11 @@ export async function POST(
         actorName: userName,
         actorRole: role || 'UNKNOWN',
         action: 'DISPUTE_APPROVED_AND_SUBMITTED',
-        details: `Dispute ${dispute.externalDisputeId} approved with ${verifiedChecklist?.length ?? 4} checklist items.`,
+        details: gate.summary,
       }
     );
 
-    // Transmit to processor gateway
+    // Transmit evidence package to the processor
     await submitDisputeToProcessor(dispute.id, orgId, {
       userId,
       actorName: `${dispute.processor.toUpperCase()} Gateway`,
@@ -84,13 +110,13 @@ export async function POST(
       action: 'DISPUTE_APPROVED_AND_SUBMITTED',
       entityType: 'DISPUTE',
       entityId: dispute.id,
-      details: `Evidence package for ${dispute.externalDisputeId} ($${dispute.amount.toFixed(2)}) approved and transmitted to ${dispute.processor.toUpperCase()}.`,
+      details: `Evidence package for ${dispute.externalDisputeId} ($${dispute.amount.toFixed(2)}) approved and transmitted to ${dispute.processor.toUpperCase()}. ${gate.summary}`,
     });
 
     await addNotification({
       organizationId: orgId,
       title: `Dispute Submitted: ${dispute.externalDisputeId}`,
-      message: `Evidence package of $${dispute.amount.toFixed(2)} was sent to ${dispute.processor.toUpperCase()} for acquiring review.`,
+      message: `Evidence of $${dispute.amount.toFixed(2)} was sent to ${dispute.processor.toUpperCase()} for acquiring review.`,
       type: 'APPROVAL_NEEDED',
       severity: 'info',
       read: false,
@@ -101,9 +127,20 @@ export async function POST(
       success: true,
       message: 'Dispute approved and submitted to payment processor.',
       data: updated,
+      gate: {
+        canApprove: true,
+        summary: gate.summary,
+        checks: gate.checks,
+      },
     });
-  } catch (error) {
-    console.error('API Error:', error);
-    return NextResponse.json({ success: false, error: 'Internal Server Error' }, { status: 500 });
+  } catch (error: any) {
+    if (error.name === 'InvalidDisputeStateTransitionError') {
+      return NextResponse.json({ success: false, error: error.message }, { status: 400 });
+    }
+    console.error('[approve-and-submit] Error:', error);
+    return NextResponse.json(
+      { success: false, error: 'Internal Server Error' },
+      { status: 500 }
+    );
   }
 }

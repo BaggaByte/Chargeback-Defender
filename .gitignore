@@ -2,3 +2,7 @@ node_modules
 .next
 tsconfig.tsbuildinfo
 .preview
+.rocketride/
+.env
+.env*.local
+.DS_Store

@@ -48,12 +48,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'User does not belong to an organization' }, { status: 403 });
     }
 
-    const body = await req.json();
-    const { customerEmail, customerName, amount, reason, processor, cardBrand, cardLast4 } = body;
+    const body = await req.json().catch(() => ({}));
+    const { customerEmail, customerName, amount, reason, processor, cardBrand, cardLast4, externalDisputeId } = body;
 
-    if (!customerEmail || !amount || !reason) {
+    const numAmount = Number(amount);
+    if (!customerEmail || isNaN(numAmount) || numAmount <= 0 || !reason) {
       return NextResponse.json(
-        { success: false, error: 'Missing required fields (customerEmail, amount, reason)' },
+        { success: false, error: 'Missing or invalid required fields (valid customerEmail, positive amount, reason required)' },
         { status: 400 }
       );
     }
@@ -63,11 +64,12 @@ export async function POST(req: NextRequest) {
       userId: userId, // Derive identity for audit
       customerEmail,
       customerName: customerName || 'New Customer',
-      amount: Number(amount),
+      amount: numAmount,
       reason,
       processor: processor || 'stripe',
       cardBrand: cardBrand || 'visa',
       cardLast4: cardLast4 || '4242',
+      externalDisputeId,
     });
 
     return NextResponse.json({ success: true, data: created });

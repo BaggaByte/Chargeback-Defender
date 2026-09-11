@@ -13,10 +13,19 @@ import {
 
 export const UserRole = pgEnum('user_role', ['ADMIN', 'MANAGER', 'OPERATOR']);
 export const DisputeStatus = pgEnum('dispute_status', [
+  'RECEIVED',
+  'PROCESSING',
+  'EVIDENCE_READY',
+  'AI_ANALYZED',
+  'NEEDS_REVIEW',
+  'APPROVED',
+  'REJECTED',
+  'SUBMITTED',
+  'RESOLVED',
+  'FAILED',
   'OPEN',
   'EVIDENCE_COLLECTING',
   'PENDING_APPROVAL',
-  'SUBMITTED',
   'WON',
   'LOST',
   'EXPIRED',
@@ -186,3 +195,27 @@ export const notifications = pgTable('notifications', {
   linkUrl: text('link_url'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
+
+/**
+ * stripe_events — database-enforced webhook idempotency table.
+ *
+ * Every incoming Stripe webhook event is recorded here BEFORE any business
+ * logic runs. Because stripe_event_id carries a UNIQUE constraint, a second
+ * delivery of the same event will fail the INSERT and we return 200 without
+ * reprocessing.
+ *
+ * status values:
+ *   'processing' — INSERT succeeded, handler is running
+ *   'processed'  — handler completed successfully
+ *   'failed'     — handler threw an error (error column populated)
+ */
+export const stripeEvents = pgTable('stripe_events', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  stripeEventId: varchar('stripe_event_id', { length: 255 }).unique().notNull(),
+  eventType: varchar('event_type', { length: 100 }).notNull(),
+  status: varchar('status', { length: 20 }).default('processing').notNull(),
+  error: text('error'),
+  processedAt: timestamp('processed_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+

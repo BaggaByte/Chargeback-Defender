@@ -79,6 +79,9 @@ export async function POST(
       data: updated,
     });
   } catch (error: any) {
+    if (error.name === 'InvalidDisputeStateTransitionError') {
+      return NextResponse.json({ success: false, error: error.message }, { status: 400 });
+    }
     console.error('API Error:', error);
     return NextResponse.json({ success: false, error: 'Internal Server Error' }, { status: 500 });
   }

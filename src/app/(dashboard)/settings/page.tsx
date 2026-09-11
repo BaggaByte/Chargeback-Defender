@@ -12,6 +12,11 @@ import {
   Building2,
   Copy,
   RefreshCw,
+  Sparkles,
+  Server,
+  CheckCircle2,
+  AlertCircle,
+  Play,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -25,6 +30,52 @@ export default function SettingsPage() {
   const [slaWarningHours, setSlaWarningHours] = useState(48);
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [copiedKey, setCopiedKey] = useState(false);
+
+  // RocketRide Cluster & Pipeline State
+  const [clusterStatus, setClusterStatus] = useState<'ready' | 'in_process_fallback' | 'unreachable' | null>(null);
+  const [clusterInfo, setClusterInfo] = useState<any>(null);
+  const [isTestingCluster, setIsTestingCluster] = useState(false);
+  const [isDeployingPipeline, setIsDeployingPipeline] = useState(false);
+  const [deployResult, setDeployResult] = useState<any>(null);
+
+  const handleTestCluster = async () => {
+    setIsTestingCluster(true);
+    try {
+      const res = await fetch('/api/rocketride/status');
+      const data = await res.json();
+      if (data.success) {
+        setClusterInfo(data.data);
+        setClusterStatus(data.data.status);
+      } else {
+        setClusterStatus('unreachable');
+      }
+    } catch {
+      setClusterStatus('unreachable');
+    } finally {
+      setIsTestingCluster(false);
+    }
+  };
+
+  const handleDeployPipeline = async () => {
+    setIsDeployingPipeline(true);
+    try {
+      const res = await fetch('/api/rocketride/deploy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pipelineName: 'dispute-analyzer' }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setDeployResult(data.data);
+      } else {
+        setDeployResult({ status: 'failed', message: data.error });
+      }
+    } catch (err: any) {
+      setDeployResult({ status: 'failed', message: err.message });
+    } finally {
+      setIsDeployingPipeline(false);
+    }
+  };
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
@@ -137,6 +188,140 @@ export default function SettingsPage() {
               </div>
             </div>
           </div>
+        </div>
+
+        {/* RocketRide AI Engine & Marketplace Cluster */}
+        <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-100">
+            <div>
+              <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-indigo-600" />
+                <span>RocketRide AI Engine & Marketplace Cluster</span>
+              </h2>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Manage your portable `.pipe` pipeline deployment, remote cluster connectivity, and anti-hallucination execution mode.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleTestCluster}
+                disabled={isTestingCluster}
+                className="text-xs flex items-center gap-1.5"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isTestingCluster ? 'animate-spin' : ''}`} />
+                <span>{isTestingCluster ? 'Probing Cluster...' : 'Test Connectivity'}</span>
+              </Button>
+
+              <Button
+                type="button"
+                variant="primary"
+                size="sm"
+                onClick={handleDeployPipeline}
+                disabled={isDeployingPipeline}
+                className="text-xs flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700"
+              >
+                <Play className={`w-3.5 h-3.5 ${isDeployingPipeline ? 'animate-spin' : ''}`} />
+                <span>{isDeployingPipeline ? 'Staging...' : 'Deploy Pipeline'}</span>
+              </Button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+            <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg space-y-1">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                Cluster Status
+              </span>
+              <div className="flex items-center gap-2">
+                <span
+                  className={`w-2 h-2 rounded-full ${
+                    clusterStatus === 'ready'
+                      ? 'bg-emerald-500'
+                      : clusterStatus === 'in_process_fallback'
+                      ? 'bg-amber-500'
+                      : clusterStatus === 'unreachable'
+                      ? 'bg-rose-500'
+                      : 'bg-slate-400'
+                  }`}
+                />
+                <span className="font-semibold text-slate-900 text-xs capitalize">
+                  {clusterStatus ? clusterStatus.replace(/_/g, ' ') : 'Ready (Verified Mode)'}
+                </span>
+              </div>
+            </div>
+
+            <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg space-y-1">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                Registered Pipeline
+              </span>
+              <span className="font-mono text-xs font-semibold text-slate-900 block truncate">
+                dispute-analyzer.pipe (v2.1.0)
+              </span>
+            </div>
+
+            <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg space-y-1">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                Cluster Endpoint
+              </span>
+              <span className="font-mono text-[11px] text-slate-600 block truncate">
+                {clusterInfo?.endpoint || 'https://api.rocketride.ai:443'}
+              </span>
+            </div>
+          </div>
+
+          {/* Test results banner */}
+          {clusterInfo && (
+            <div className="p-3 bg-indigo-50/70 border border-indigo-200 rounded-lg text-xs space-y-1">
+              <div className="flex items-center justify-between font-semibold text-indigo-950">
+                <span className="flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-indigo-600" />
+                  <span>Cluster Probe Succeeded</span>
+                </span>
+                {clusterInfo.latencyMs !== undefined && (
+                  <span className="text-[10px] font-mono text-indigo-700 bg-white px-2 py-0.5 rounded border border-indigo-200">
+                    Latency: {clusterInfo.latencyMs}ms
+                  </span>
+                )}
+              </div>
+              <p className="text-[11px] text-indigo-900/80">
+                Mode: <strong>{clusterInfo.configured ? 'Live Remote Engine' : 'Deterministic In-Process Engine'}</strong> • Supported Stages:{' '}
+                {clusterInfo.capabilities?.slice(0, 5).join(', ')} (+{Math.max(0, (clusterInfo.capabilities?.length || 0) - 5)} more)
+              </p>
+            </div>
+          )}
+
+          {/* Deploy results banner */}
+          {deployResult && (
+            <div
+              className={`p-3 rounded-lg border text-xs space-y-1 ${
+                deployResult.status === 'success'
+                  ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                  : 'bg-rose-50 border-rose-200 text-rose-900'
+              }`}
+            >
+              <div className="flex items-center justify-between font-semibold">
+                <span className="flex items-center gap-1.5">
+                  {deployResult.status === 'success' ? (
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                  ) : (
+                    <AlertCircle className="w-3.5 h-3.5 text-rose-600" />
+                  )}
+                  <span>
+                    {deployResult.status === 'success' ? 'Pipeline Staged & Activated' : 'Deployment Failed'}
+                  </span>
+                </span>
+                {deployResult.deploymentId && (
+                  <span className="font-mono text-[10px] bg-white px-2 py-0.5 rounded border border-emerald-200">
+                    ID: {deployResult.deploymentId}
+                  </span>
+                )}
+              </div>
+              <p className="text-[11px] opacity-90">{deployResult.message}</p>
+            </div>
+          )}
         </div>
 
         {/* API Keys & Webhooks */}

@@ -1,0 +1,140 @@
+{
+  "name": "chargeback-defender",
+  "displayName": "Chargeback Defender — Autonomous Dispute Intelligence",
+  "version": "2.1.0",
+  "releaseDate": "2026-09-11",
+  "slug": "chargeback-defender",
+  "publisher": {
+    "name": "Chargeback Defender Inc.",
+    "email": "partnerships@chargebackdefender.io",
+    "supportUrl": "https://chargebackdefender.io/support",
+    "website": "https://chargebackdefender.io",
+    "verified": true
+  },
+  "summary": "AI-powered chargeback defense and evidence orchestration platform. Integrates Visa CE 3.0, automated rebuttal generation, and anti-hallucination guardrails.",
+  "description": "Chargeback Defender is a production-grade dispute intelligence application powered by the RocketRide AI engine. It transforms raw Stripe and payment gateway disputes into winnable defense packages by extracting proof from order records, logistics carriers (FedEx, UPS), and customer telemetry, cross-referencing card brand rules, and generating grounded legal rebuttals guarded against hallucinations.",
+  "category": "Fintech & Payments",
+  "subcategory": "Fraud Prevention & Dispute Resolution",
+  "license": "Commercial",
+  "icon": "https://chargebackdefender.io/assets/icon-512.png",
+  "banner": "https://chargebackdefender.io/assets/banner-marketplace.png",
+  "tags": [
+    "fintech",
+    "stripe",
+    "dispute-management",
+    "chargeback-defense",
+    "compelling-evidence-3.0",
+    "ai-rebuttal",
+    "anti-hallucination",
+    "fraud-prevention"
+  ],
+  "pipelines": [
+    {
+      "name": "dispute-analyzer",
+      "path": "rocketride/dispute-analyzer.pipe",
+      "version": "2.1.0",
+      "description": "Multi-stage dispute analysis pipeline: parses evidence, evaluates card brand network rules, calculates win probability, and generates factual rebuttals with hallucination guards."
+    },
+    {
+      "name": "chargeback_defender",
+      "path": "rocketride/chargeback_defender.pipe",
+      "version": "1.0.0",
+      "description": "Autonomous end-to-end ingestion and representment orchestration pipeline with feedback memory."
+    }
+  ],
+  "pricing": {
+    "model": "usage_based",
+    "currency": "USD",
+    "plans": [
+      {
+        "id": "starter",
+        "name": "Developer / Trial",
+        "price": 0,
+        "period": "monthly",
+        "includedDisputesPerMonth": 25,
+        "overageFeePerDispute": 0.75
+      },
+      {
+        "id": "growth",
+        "name": "Production Growth",
+        "price": 99,
+        "period": "monthly",
+        "includedDisputesPerMonth": 250,
+        "overageFeePerDispute": 0.45
+      },
+      {
+        "id": "enterprise",
+        "name": "Enterprise Scale",
+        "price": 499,
+        "period": "monthly",
+        "includedDisputesPerMonth": 2000,
+        "overageFeePerDispute": 0.25
+      }
+    ]
+  },
+  "runtime": {
+    "type": "nextjs-app",
+    "nodeVersion": ">=20.0.0",
+    "minEngineVersion": "2.4.0",
+    "port": 3000
+  },
+  "configurationSchema": {
+    "required": [
+      "DATABASE_URL",
+      "STRIPE_SECRET_KEY",
+      "STRIPE_WEBHOOK_SECRET"
+    ],
+    "optional": [
+      "ROCKETRIDE_API_KEY",
+      "ROCKETRIDE_ENDPOINT",
+      "AI_PROVIDER",
+      "AI_FALLBACK_PROVIDER",
+      "GEMINI_API_KEY"
+    ],
+    "properties": {
+      "ROCKETRIDE_API_KEY": {
+        "type": "string",
+        "description": "API authentication key for RocketRide remote engine cluster. When omitted, the app operates in verified in-process deterministic fallback mode.",
+        "secret": true
+      },
+      "ROCKETRIDE_ENDPOINT": {
+        "type": "string",
+        "description": "Base URI for RocketRide engine API endpoint.",
+        "default": "https://api.rocketride.ai:443"
+      },
+      "AI_PROVIDER": {
+        "type": "string",
+        "enum": ["rocketride", "gemini"],
+        "default": "rocketride"
+      },
+      "AI_FALLBACK_PROVIDER": {
+        "type": "string",
+        "enum": ["gemini", "none"],
+        "default": "none"
+      },
+      "STRIPE_SECRET_KEY": {
+        "type": "string",
+        "description": "Stripe restricted API key with read/write access to disputes and charges.",
+        "secret": true
+      },
+      "STRIPE_WEBHOOK_SECRET": {
+        "type": "string",
+        "description": "Stripe webhook signing secret (whsec_...) for cryptographically verified ingestion.",
+        "secret": true
+      }
+    }
+  },
+  "keyFeatures": [
+    "Compelling Evidence 3.0 & 2.0 card network compliance engine",
+    "Zero-hallucination guarantee: AI verification gate flags any claim not backed by input evidence",
+    "Multi-stage RocketRide pipeline with item-by-item evidence scoring",
+    "Database-enforced Stripe webhook idempotency (stripe_events table)",
+    "Server-side 10-point Human Approval Gate preventing accidental or invalid representments",
+    "Real-time cluster health inspection and in-process deterministic fallback"
+  ],
+  "links": {
+    "documentation": "https://chargebackdefender.io/docs",
+    "github": "https://github.com/Chargeback-Defender/platform",
+    "liveDemo": "https://demo.chargebackdefender.io"
+  }
+}

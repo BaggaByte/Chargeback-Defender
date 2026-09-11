@@ -1,11 +1,6 @@
-export type DisputeStatusType =
-  | 'OPEN'
-  | 'EVIDENCE_COLLECTING'
-  | 'PENDING_APPROVAL'
-  | 'SUBMITTED'
-  | 'WON'
-  | 'LOST'
-  | 'EXPIRED';
+import type { DisputeStatus } from './dispute-state-machine';
+
+export type DisputeStatusType = DisputeStatus;
 
 export type EvidenceCategory =
   | 'ORDER_DETAILS'
@@ -102,6 +97,7 @@ export interface EvidenceItem {
 export interface AIAnalysisReport {
   overallStrengthScore: number; // 0 - 100
   winProbabilityPercent: number; // 0 - 100
+  confidence?: number; // 0.0 - 1.0
   recommendedAction: 'SUBMIT_DEFENSE' | 'ACCEPT_DISPUTE' | 'GATHER_MORE_EVIDENCE';
   reasonClassification: string;
   applicableCompellingEvidenceRule?: string; // e.g. "Visa CE 3.0 Qualified (2+ prior undisputed transactions)"
@@ -114,6 +110,20 @@ export interface AIAnalysisReport {
   }>;
   suggestedRebuttalLetter: string;
   contradictionFlags: string[];
+  provider?: string;
+  pipeline?: string;
+  executionMode?: 'remote_cluster' | 'in_process_fallback';
+  isLiveExecution?: boolean;
+  verification?: {
+    passed: boolean;
+    unsupportedClaims: string[];
+    contradictions: string[];
+    addressedDisputeReason: boolean;
+    internallyConsistent: boolean;
+    notes?: string;
+  };
+  fallbackUsed?: boolean;
+  fallbackReason?: string;
 }
 
 export interface DisputeRecord {

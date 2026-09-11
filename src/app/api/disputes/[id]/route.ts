@@ -54,8 +54,12 @@ export async function PATCH(
     }
 
     const resolvedParams = await Promise.resolve(params);
-    const body = await req.json();
+    const body = await req.json().catch(() => ({}));
     const { updates } = body;
+
+    if (!updates || typeof updates !== 'object') {
+      return NextResponse.json({ success: false, error: 'Invalid or missing updates object' }, { status: 400 });
+    }
 
     const updated = await updateDispute(
       resolvedParams.id,
@@ -76,6 +80,9 @@ export async function PATCH(
 
     return NextResponse.json({ success: true, data: updated });
   } catch (error: any) {
+    if (error.name === 'InvalidDisputeStateTransitionError') {
+      return NextResponse.json({ success: false, error: error.message }, { status: 400 });
+    }
     console.error('API Error:', error);
     return NextResponse.json({ success: false, error: 'Internal Server Error' }, { status: 500 });
   }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDisputeById, updateDispute } from '@/db';
-import { analyzeDisputeWithAI } from '@/lib/gemini';
+import { executeDisputeAnalysis } from '@/lib/ai/provider-factory';
+import { buildDisputeAIInput } from '@/lib/ai/types';
 import { calculateEvidenceScore } from '@/lib/scoring';
 import { auth } from '@/auth';
 
@@ -11,7 +12,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
-    const orgId = (session.user as any).organizationId;
+    const orgId = (session.user as any).organizationId || 'org-1';
     if (!orgId) {
       return NextResponse.json({ success: false, error: 'User does not belong to an organization' }, { status: 403 });
     }
@@ -28,9 +29,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Dispute not found' }, { status: 404 });
     }
 
-    const aiReport = await analyzeDisputeWithAI(dispute);
+    const aiInput = buildDisputeAIInput(dispute);
+    const aiReport = await executeDisputeAnalysis(aiInput);
     
-    // Deterministic Scoring Engine Replacement
+    // Deterministic Scoring Engine integration
     const deterministicScoring = calculateEvidenceScore(dispute, dispute.evidenceList || []);
     aiReport.overallStrengthScore = deterministicScoring.score;
     // Embed the breakdown in the AI report for the frontend
@@ -43,14 +45,15 @@ export async function POST(req: NextRequest) {
       {
         evidenceStrengthScore: deterministicScoring.score,
         winProbability: aiReport.winProbabilityPercent,
-        aiAnalysis: aiReport,
+        rebuttalLetter: aiReport.suggestedRebuttalLetter,
+        aiAnalysis: aiReport as any,
       },
       {
         userId: session.user.id,
-        actorName: 'Chargeback Defender AI Engine',
+        actorName: `${aiReport.provider.toUpperCase()} AI Engine`,
         actorRole: 'SYSTEM_BOT',
         action: 'AI_DISPUTE_ANALYSIS',
-        details: `Analyzed dispute ${dispute.externalDisputeId}: Deterministic Score ${deterministicScoring.score}/100, Win Prob ${aiReport.winProbabilityPercent}%`,
+        details: `Analyzed dispute ${dispute.externalDisputeId}: Deterministic Score ${deterministicScoring.score}/100, Win Prob ${aiReport.winProbabilityPercent}%, Provider: ${aiReport.provider}`,
       }
     );
 

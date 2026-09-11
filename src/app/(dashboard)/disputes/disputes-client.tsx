@@ -126,15 +126,32 @@ export default function DisputesClient({ initialDisputes }: DisputesClientProps)
   const getStatusBadge = (status: DisputeStatusType) => {
     switch (status) {
       case 'WON':
-        return <Badge variant="success">WON</Badge>;
+      case 'RESOLVED':
+        return <Badge variant="success">WON / RESOLVED</Badge>;
       case 'LOST':
         return <Badge variant="danger">LOST</Badge>;
+      case 'NEEDS_REVIEW':
       case 'PENDING_APPROVAL':
         return <Badge variant="pending">PENDING APPROVAL</Badge>;
+      case 'APPROVED':
+        return <Badge variant="success">APPROVED</Badge>;
+      case 'REJECTED':
+        return <Badge variant="danger">REJECTED</Badge>;
       case 'SUBMITTED':
         return <Badge variant="submitted">SUBMITTED</Badge>;
+      case 'PROCESSING':
       case 'EVIDENCE_COLLECTING':
         return <Badge variant="warning">COLLECTING</Badge>;
+      case 'EVIDENCE_READY':
+        return <Badge variant="info">EVIDENCE READY</Badge>;
+      case 'AI_ANALYZED':
+        return <Badge variant="purple">AI ANALYZED</Badge>;
+      case 'FAILED':
+        return <Badge variant="danger">FAILED</Badge>;
+      case 'EXPIRED':
+        return <Badge variant="outline">EXPIRED</Badge>;
+      case 'RECEIVED':
+      case 'OPEN':
       default:
         return <Badge variant="default">OPEN</Badge>;
     }
