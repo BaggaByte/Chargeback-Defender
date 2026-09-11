@@ -60,12 +60,17 @@ async function main() {
 
     // Give Stripe a brief second to generate the dispute object
     console.log(`[2/4] ⏳ Waiting for Stripe engine to generate dispute record...`);
-    let disputeId = charge.dispute as string;
-    for (let i = 0; i < 5 && !disputeId; i++) {
+    let disputeId: string | undefined;
+    for (let i = 0; i < 8 && !disputeId; i++) {
       await new Promise((r) => setTimeout(r, 800));
-      const refreshed = await stripe.charges.retrieve(charge.id);
-      if (refreshed.dispute) {
-        disputeId = typeof refreshed.dispute === 'string' ? refreshed.dispute : (refreshed.dispute as any).id;
+      // Look for the dispute by listing events for this charge
+      const events = await stripe.events.list({ type: 'charge.dispute.created', limit: 5 });
+      const match = events.data.find((ev) => {
+        const d = ev.data.object as any;
+        return d.charge === charge.id;
+      });
+      if (match) {
+        disputeId = (match.data.object as any).id;
       }
     }
 
