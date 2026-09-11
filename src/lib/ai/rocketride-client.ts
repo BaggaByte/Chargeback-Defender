@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import path from 'node:path';
 import { RocketRideClient as SDKClient, Question } from 'rocketride';
 import {
@@ -105,13 +106,8 @@ export class RocketRideClient {
 
       // Prefer evidence-analysis.pipe; fall back to dispute-analyzer.pipe
       let pipelinePath = EVIDENCE_PIPELINE_PATH;
-      try {
-        const fs = await import('node:fs');
-        if (!fs.existsSync(pipelinePath)) {
-          console.warn(`[RocketRide] evidence-analysis.pipe not found, falling back to dispute-analyzer.pipe`);
-          pipelinePath = DISPUTE_ANALYZER_PATH;
-        }
-      } catch {
+      if (!fs.existsSync(pipelinePath)) {
+        console.warn(`[RocketRide] evidence-analysis.pipe not found, falling back to dispute-analyzer.pipe`);
         pipelinePath = DISPUTE_ANALYZER_PATH;
       }
 
@@ -476,7 +472,14 @@ export class RocketRideClient {
     const client = new SDKClient();
     try {
       await client.connect();
-      const pipeline = await import(pipelinePath).catch(() => null);
+      let pipeline = null;
+      try {
+        if (fs.existsSync(pipelinePath)) {
+          pipeline = JSON.parse(fs.readFileSync(pipelinePath, 'utf8'));
+        }
+      } catch {
+        pipeline = null;
+      }
       const validation = pipeline
         ? await client.validate({ pipeline })
         : { errors: ['Pipeline file not found'], warnings: [] };
