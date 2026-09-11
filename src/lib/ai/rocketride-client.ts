@@ -399,7 +399,7 @@ export class RocketRideClient {
     const configured = this.isConfigured();
     const timestamp = new Date().toISOString();
     const capabilities = [
-      'schema_validator', 'ocr', 'anonymize_text', 'extract_data',
+      'schema_validator', 'ocr', 'anonymize_text', 'extract_data', 'extract_facts',
       'embedding_transformer', 'chroma', 'llm_gemini',
       'rule_evaluator', 'network_rules_engine', 'probability_calculator',
       'gap_analyzer', 'llm_generator', 'hallucination_guard', 'response_json',

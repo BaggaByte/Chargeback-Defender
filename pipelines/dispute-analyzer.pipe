@@ -45,11 +45,31 @@
       "id": "extract_data_1",
       "provider": "extract_data",
       "config": {
-        "instructions": [
-          "You are analyzing a payment dispute submission (dispute reason, order details, and evidence records provided as JSON text).",
-          "Evaluate the evidence against Visa Compelling Evidence 3.0 and Mastercard Compelling Evidence 2.0 factors: 3-D Secure authentication, AVS/CVC match, proof of delivery with signature, verified customer login/session correlation, and TOS acceptance.",
-          "Return: winProbabilityPercent (0-100), evidenceStrengthScore (0-100), missingEvidence (array of evidence types not present), and a draftRebuttalLetter (formal representment letter addressed to the acquiring bank)."
-        ],
+        "profile": "default",
+        "default": {
+          "fields": [
+            {
+              "column": "winProbabilityPercent",
+              "type": "int",
+              "defval": "50"
+            },
+            {
+              "column": "evidenceStrengthScore",
+              "type": "int",
+              "defval": "50"
+            },
+            {
+              "column": "missingEvidence",
+              "type": "json",
+              "defval": "[]"
+            },
+            {
+              "column": "draftRebuttalLetter",
+              "type": "text",
+              "defval": ""
+            }
+          ]
+        },
         "parameters": {}
       },
       "input": [
