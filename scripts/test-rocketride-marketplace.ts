@@ -128,22 +128,28 @@ async function runMarketplaceTests() {
     assert.ok(manifest.keyFeatures?.length >= 4, 'Key features required');
   });
 
-  // 5. Portable .pipe File Structure
-  await test('Pipeline Definition: dispute-analyzer.pipe contains marketplace block and all required stages', () => {
-    const pipePath = path.resolve(__dirname, '../rocketride/dispute-analyzer.pipe');
-    assert.ok(fs.existsSync(pipePath), 'dispute-analyzer.pipe must exist');
+  // 5. Portable JSON .pipe File Structure
+  await test('Pipeline Definition: pipelines/dispute-analyzer.pipe contains real JSON components and project_id', () => {
+    const pipePath = path.resolve(__dirname, '../pipelines/dispute-analyzer.pipe');
+    assert.ok(fs.existsSync(pipePath), 'pipelines/dispute-analyzer.pipe must exist');
 
     const content = fs.readFileSync(pipePath, 'utf8');
-    assert.ok(content.includes('marketplace:'), 'Must contain marketplace: block');
-    assert.ok(content.includes('id: "chargeback-defender-dispute-analyzer"'));
-    assert.ok(content.includes('schema_validator'), 'Must include schema_validator');
-    assert.ok(content.includes('extract_facts'), 'Must include extract_facts');
-    assert.ok(content.includes('hallucination_guard'), 'Must include hallucination_guard');
-    assert.ok(content.includes('response_json'), 'Must include response_json');
+    const jsonPipe = JSON.parse(content);
+    assert.ok(Array.isArray(jsonPipe.components), 'components array must be first in JSON pipeline');
+    assert.ok(jsonPipe.components.length >= 5, 'Must contain at least 5 pipeline components');
+    assert.ok(jsonPipe.project_id, 'project_id is required');
+    assert.ok(jsonPipe.viewport, 'viewport is required');
+
+    const providerNames = jsonPipe.components.map((c: any) => c.provider);
+    assert.ok(providerNames.includes('webhook'), 'Must include webhook source');
+    assert.ok(providerNames.includes('parse'), 'Must include parse component');
+    assert.ok(providerNames.includes('extract_data'), 'Must include extract_data component');
+    assert.ok(providerNames.includes('llm_openai'), 'Must include llm_openai component');
+    assert.ok(providerNames.includes('response_answers'), 'Must include response_answers component');
   });
 
-  // 6. RocketRide Native Micro-Frontend & JSON Pipeline Specification
-  await test('RocketRide Native App: apps/chargeback-defender-analyzer and pipelines/ exist with correct specs', () => {
+  // 6. RocketRide Native Micro-Frontend & Developer ID Specification
+  await test('RocketRide Native App: apps/chargeback-defender-analyzer has valid developer namespace', () => {
     const appDir = path.resolve(__dirname, '../apps/chargeback-defender-analyzer');
     assert.ok(fs.existsSync(appDir), 'apps/chargeback-defender-analyzer must exist');
     assert.ok(fs.existsSync(path.join(appDir, 'package.json')), 'app package.json must exist');
@@ -154,13 +160,14 @@ async function runMarketplaceTests() {
     const appPkg = JSON.parse(fs.readFileSync(path.join(appDir, 'package.json'), 'utf8'));
     assert.ok(appPkg.appManifest, 'appManifest must be present in package.json');
     assert.strictEqual(appPkg.appManifest.name, 'Chargeback Defender — Dispute Analyzer');
+    assert.strictEqual(appPkg.appManifest.id, 'baggabyte.chargeback_defender_analyzer');
+    assert.ok(!appPkg.appManifest.id.includes('REPLACE_WITH_YOUR_DEVELOPER_ID'), 'Placeholder developer ID must be removed');
+    assert.ok(/^[a-z][a-z_]*\.[a-z][a-zA-Z0-9_-]*$/.test(appPkg.appManifest.id), 'Must conform to RocketRide ID grammar');
     assert.ok(appPkg.appManifest.billing?.plans?.length > 0, 'Billing plans must be configured');
 
-    const jsonPipePath = path.resolve(__dirname, '../pipelines/dispute-analyzer.pipe');
-    assert.ok(fs.existsSync(jsonPipePath), 'pipelines/dispute-analyzer.pipe must exist');
-    const jsonPipe = JSON.parse(fs.readFileSync(jsonPipePath, 'utf8'));
-    assert.ok(Array.isArray(jsonPipe.components), 'components array must be first in JSON pipeline');
-    assert.ok(jsonPipe.project_id, 'project_id required in JSON pipeline');
+    const descriptorContent = fs.readFileSync(path.join(appDir, 'src/AppDescriptor.ts'), 'utf8');
+    assert.ok(descriptorContent.includes('id: \'baggabyte.chargeback_defender_analyzer\''), 'AppDescriptor.ts must match manifest id');
+    assert.ok(!descriptorContent.includes('REPLACE_WITH_YOUR_DEVELOPER_ID'), 'Placeholder in AppDescriptor must be removed');
   });
 
   console.log(`\n========================================`);

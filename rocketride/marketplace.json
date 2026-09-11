@@ -31,7 +31,7 @@
   "pipelines": [
     {
       "name": "dispute-analyzer",
-      "path": "rocketride/dispute-analyzer.pipe",
+      "path": "pipelines/dispute-analyzer.pipe",
       "version": "2.1.0",
       "description": "Multi-stage dispute analysis pipeline: parses evidence, evaluates card brand network rules, calculates win probability, and generates factual rebuttals with hallucination guards."
     },

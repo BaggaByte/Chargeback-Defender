@@ -5,7 +5,7 @@
   "description": "Chargeback Defender — dispute intelligence pipeline as a RocketRide app",
   "license": "UNLICENSED",
   "appManifest": {
-    "id": "REPLACE_WITH_YOUR_DEVELOPER_ID.chargeback_defender_analyzer",
+    "id": "baggabyte.chargeback_defender_analyzer",
     "publisher": "Chargeback Defender Inc.",
     "name": "Chargeback Defender — Dispute Analyzer",
     "description": "Paste a dispute's order, evidence, and reason code to get a win-probability score and a draft rebuttal letter, scored against Visa CE 3.0 / Mastercard CE 2.0 factors.",

@@ -42,9 +42,9 @@ port of your full dashboard.
 
 **Before this runs, you must:**
 
-1. Replace `REPLACE_WITH_YOUR_DEVELOPER_ID` in `package.json` and
-   `src/AppDescriptor.ts` with your actual claimed RocketRide developer
-   namespace (Deploy tab → register once, if you haven't).
+1. Configured with developer namespace `baggabyte` in `package.json` and
+   `src/AppDescriptor.ts` (`baggabyte.chargeback_defender_analyzer`). If your
+   claimed namespace differs, update both spots to match.
 2. Drop both folders into your RocketRide workspace root (`apps/` and
    `pipelines/` siblings), so the relative import path in `App.tsx`
    (`../../../pipelines/dispute-analyzer.pipe`) resolves.

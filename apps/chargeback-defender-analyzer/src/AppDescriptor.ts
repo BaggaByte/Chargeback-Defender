@@ -10,7 +10,7 @@ import App from './App';
 // chargeback-defender-analyzer.rrapp (the App Builder writes that file;
 // it starts as an empty {} trigger, per ROCKETRIDE_APPS.md).
 const descriptor: AppDescriptor = {
-	id: 'REPLACE_WITH_YOUR_DEVELOPER_ID.chargeback_defender_analyzer',
+	id: 'baggabyte.chargeback_defender_analyzer',
 	name: 'Chargeback Defender — Dispute Analyzer',
 	branding: {
 		appName: 'Chargeback Defender',
