@@ -1,0 +1,212 @@
+{
+  "components": [
+    {
+      "id": "webhook_1",
+      "provider": "webhook",
+      "config": {
+        "hideForm": true,
+        "mode": "Source",
+        "parameters": {},
+        "type": "webhook"
+      },
+      "ui": {
+        "position": { "x": 20, "y": 200 },
+        "measured": { "width": 150, "height": 66 }
+      }
+    },
+    {
+      "id": "parse_1",
+      "provider": "parse",
+      "config": {},
+      "input": [
+        { "lane": "tags", "from": "webhook_1" }
+      ],
+      "ui": {
+        "position": { "x": 240, "y": 200 },
+        "measured": { "width": 150, "height": 66 }
+      }
+    },
+    {
+      "id": "ocr_1",
+      "provider": "ocr",
+      "config": { "parameters": {} },
+      "input": [
+        { "lane": "image", "from": "parse_1" }
+      ],
+      "ui": {
+        "position": { "x": 460, "y": 100 },
+        "measured": { "width": 150, "height": 66 }
+      }
+    },
+    {
+      "id": "anonymize_1",
+      "provider": "anonymize_text",
+      "config": { "parameters": {} },
+      "input": [
+        { "lane": "text", "from": "parse_1" },
+        { "lane": "text", "from": "ocr_1" }
+      ],
+      "ui": {
+        "position": { "x": 680, "y": 200 },
+        "measured": { "width": 150, "height": 66 }
+      }
+    },
+    {
+      "id": "preprocessor_1",
+      "provider": "preprocessor_langchain",
+      "config": {
+        "profile": "default",
+        "default": {
+          "mode": "strlen",
+          "splitter": "RecursiveCharacterTextSplitter",
+          "strlen": 1024
+        },
+        "parameters": {}
+      },
+      "input": [
+        { "lane": "text", "from": "anonymize_1" }
+      ],
+      "ui": {
+        "position": { "x": 900, "y": 200 },
+        "measured": { "width": 150, "height": 66 }
+      }
+    },
+    {
+      "id": "embedding_1",
+      "provider": "embedding_transformer",
+      "config": {
+        "profile": "miniLM",
+        "parameters": {}
+      },
+      "input": [
+        { "lane": "documents", "from": "preprocessor_1" }
+      ],
+      "ui": {
+        "position": { "x": 1120, "y": 200 },
+        "measured": { "width": 150, "height": 66 }
+      }
+    },
+    {
+      "id": "chroma_1",
+      "provider": "chroma",
+      "config": {
+        "profile": "local",
+        "local": {
+          "host": "${ROCKETRIDE_CHROMA_HOST}",
+          "port": "${ROCKETRIDE_CHROMA_PORT}",
+          "collection": "${ROCKETRIDE_CHROMA_COLLECTION}"
+        },
+        "parameters": {}
+      },
+      "input": [
+        { "lane": "documents", "from": "embedding_1" }
+      ],
+      "ui": {
+        "position": { "x": 1340, "y": 200 },
+        "measured": { "width": 150, "height": 135 }
+      }
+    },
+    {
+      "id": "question_1",
+      "provider": "question",
+      "config": { "parameters": {} },
+      "input": [
+        { "lane": "text", "from": "anonymize_1" }
+      ],
+      "ui": {
+        "position": { "x": 900, "y": 400 },
+        "measured": { "width": 150, "height": 66 }
+      }
+    },
+    {
+      "id": "embedding_query_1",
+      "provider": "embedding_transformer",
+      "config": {
+        "profile": "miniLM",
+        "parameters": {}
+      },
+      "input": [
+        { "lane": "questions", "from": "question_1" }
+      ],
+      "ui": {
+        "position": { "x": 1120, "y": 400 },
+        "measured": { "width": 150, "height": 66 }
+      }
+    },
+    {
+      "id": "chroma_search_1",
+      "provider": "chroma",
+      "config": {
+        "profile": "local",
+        "local": {
+          "host": "${ROCKETRIDE_CHROMA_HOST}",
+          "port": "${ROCKETRIDE_CHROMA_PORT}",
+          "collection": "${ROCKETRIDE_CHROMA_COLLECTION}"
+        },
+        "parameters": {}
+      },
+      "input": [
+        { "lane": "questions", "from": "embedding_query_1" }
+      ],
+      "ui": {
+        "position": { "x": 1340, "y": 400 },
+        "measured": { "width": 150, "height": 135 }
+      }
+    },
+    {
+      "id": "prompt_1",
+      "provider": "prompt",
+      "config": {
+        "instructions": [
+          "You are an elite chargeback defense specialist. Analyze the payment dispute below using Visa Compelling Evidence 3.0 and Mastercard Compelling Evidence 2.0 heuristics.",
+          "The evidence text has already been PII-redacted. Do NOT invent facts, tracking numbers, or dates not present in the provided context.",
+          "Similar past dispute cases are provided as context — use their outcomes to inform your win probability estimate, but note the current dispute's tenant context is isolated.",
+          "Return a strictly validated JSON object with these fields: winProbabilityPercent (0-100), evidenceStrengthScore (0-100), recommendedAction (SUBMIT_DEFENSE | ACCEPT_DISPUTE | GATHER_MORE_EVIDENCE), reasonClassification (string), applicableCompellingEvidenceRule (string), strengths (string[]), vulnerabilities (string[]), missingEvidenceRecommendations (array of {type, title, impact, reason}), suggestedRebuttalLetter (formal professional rebuttal citing only verified facts).",
+          "CRITICAL: Do not include any PII, real names, addresses, or card numbers in the suggestedRebuttalLetter — use only redacted references from the evidence."
+        ],
+        "parameters": {}
+      },
+      "input": [
+        { "lane": "documents", "from": "chroma_search_1" },
+        { "lane": "questions", "from": "chroma_search_1" }
+      ],
+      "ui": {
+        "position": { "x": 1560, "y": 400 },
+        "measured": { "width": 150, "height": 66 }
+      }
+    },
+    {
+      "id": "llm_gemini_1",
+      "provider": "llm_gemini",
+      "config": {
+        "profile": "gemini-2.0-flash",
+        "gemini-2.0-flash": {
+          "apikey": "${ROCKETRIDE_GEMINI_KEY}"
+        },
+        "parameters": {}
+      },
+      "input": [
+        { "lane": "questions", "from": "prompt_1" }
+      ],
+      "ui": {
+        "position": { "x": 1780, "y": 400 },
+        "measured": { "width": 150, "height": 66 }
+      }
+    },
+    {
+      "id": "response_answers_1",
+      "provider": "response_answers",
+      "config": { "laneName": "answers" },
+      "input": [
+        { "lane": "answers", "from": "llm_gemini_1" }
+      ],
+      "ui": {
+        "position": { "x": 2000, "y": 400 },
+        "measured": { "width": 150, "height": 66 }
+      }
+    }
+  ],
+  "project_id": "a3f7c91e-5b2d-4e8f-9c1a-6d3b7e4f2a8c",
+  "viewport": { "x": 0, "y": 0, "zoom": 1 },
+  "version": 1
+}

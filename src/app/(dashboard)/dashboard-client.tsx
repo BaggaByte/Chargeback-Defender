@@ -2,6 +2,8 @@
 
 import React from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 import {
   ShieldCheck,
   DollarSign,
@@ -38,6 +40,15 @@ interface DashboardClientProps {
 }
 
 export default function DashboardClient({ disputes }: DashboardClientProps) {
+  const router = useRouter();
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      router.refresh();
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [router]);
+
   const totalDisputes = disputes.length;
   const wonDisputes = disputes.filter((d) => d.status === 'WON').length;
   const lostDisputes = disputes.filter((d) => d.status === 'LOST').length;
@@ -161,7 +172,7 @@ export default function DashboardClient({ disputes }: DashboardClientProps) {
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">
-                    {item.evidenceStrengthScore}% AI Score
+                    {item.evidenceStrengthScore}% AI Score (Test/Demo)
                   </span>
                   <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
                 </div>
@@ -295,7 +306,7 @@ export default function DashboardClient({ disputes }: DashboardClientProps) {
                 <div className="text-right">
                   <span className="text-xs font-bold text-slate-900">${Number(d.amount).toFixed(2)}</span>
                   <span className="text-[10px] text-emerald-600 block font-semibold">
-                    {d.evidenceStrengthScore || 85}% Strength
+                    {d.evidenceStrengthScore || 85}% Strength (Test/Demo)
                   </span>
                 </div>
                 <Badge

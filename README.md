@@ -116,7 +116,41 @@ npm run build
 
 ---
 
-## 5. Security Principles
+## 5. Stripe Test Mode Demo
+
+Follow these instructions to verify real-time, end-to-end ingestion and AI evidence generation locally using Stripe CLI.
+
+### Local Development Flow
+
+1. **Start the application locally**:
+   ```bash
+   npm run dev
+   ```
+2. **Authenticate with Stripe CLI**:
+   ```bash
+   stripe login
+   ```
+3. **Listen and forward webhooks**:
+   ```bash
+   stripe listen --forward-to localhost:4000/api/webhooks/stripe
+   ```
+   *Note: Copy the webhook signing secret (`whsec_...`) printed in the console and place it in your `.env.local` under `STRIPE_WEBHOOK_SECRET`.*
+4. **Trigger a test dispute** (in a new terminal):
+   ```bash
+   stripe trigger charge.dispute.created
+   ```
+
+**What to expect**:
+- You should see logs indicating a `REAL Stripe test event received`.
+- The system will inject `[DEMO DATA]` as synthetic evidence for Rocket Ride evaluators.
+- Within 5-10 seconds, the Dispute Dashboard (`http://localhost:4000`) will automatically refresh and display the newly created dispute with a `Test/Demo` AI score.
+
+### Staging / Production
+When deployed, ensure you add the public endpoint URL to your Stripe Dashboard Webhooks settings and configure the corresponding `STRIPE_WEBHOOK_SECRET` environment variable for your deployment.
+
+---
+
+## 6. Security Principles
 
 1. **Stripe Webhook Signature Verification:** Raw text payload is strictly verified using HMAC SHA-256 in production.
 2. **Zero Client Secret Leakage:** No server secrets or database credentials use the `NEXT_PUBLIC_` prefix.

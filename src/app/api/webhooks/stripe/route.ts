@@ -13,9 +13,8 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_mock', {
   apiVersion: '2023-10-16' as any,
 });
 
-const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-
 export async function POST(req: NextRequest) {
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
   let stripeEventId: string | undefined;
 
   try {
@@ -66,6 +65,10 @@ export async function POST(req: NextRequest) {
       : 'org-1';
 
     // --- Event Routing ---
+    console.log(`\n======================================================`);
+    console.log(`[Webhook] REAL Stripe test event received: ${event.type} (${event.id})`);
+    console.log(`======================================================\n`);
+    
     if (event.type === 'charge.dispute.created') {
       await handleDisputeCreated(event, effectiveOrgId);
     } else if (event.type === 'charge.dispute.updated') {
@@ -172,12 +175,13 @@ async function runPipelineWithRetry(disputeId: string, orgId: string, maxRetries
 
       // 1. Order evidence (if not already attached)
       if (!loaded.evidenceList || loaded.evidenceList.length === 0) {
+        console.log(`\n[Webhook] 🤖 Injecting SYNTHETIC evidence data for demo purposes...`);
         const order = await shopify.fetchOrder(loaded.order?.externalOrderId || 'ORD-DEFAULT');
         await addEvidence({
           disputeId: loaded.id,
           type: 'ORDER_DETAILS',
-          title: 'Shopify Order Receipt',
-          content: shopify.formatAsEvidence(order),
+          title: '[DEMO DATA] Shopify Order Receipt',
+          content: '[DEMO DATA]\n\n' + shopify.formatAsEvidence(order),
           sourceIntegration: 'Shopify API',
           isAutoCollected: true,
           confidenceScore: 99,
@@ -188,8 +192,8 @@ async function runPipelineWithRetry(disputeId: string, orgId: string, maxRetries
         await addEvidence({
           disputeId: loaded.id,
           type: 'SHIPPING_PROOF',
-          title: 'EasyPost Delivery Confirmation',
-          content: easypost.formatAsEvidence(tracking),
+          title: '[DEMO DATA] EasyPost Delivery Confirmation',
+          content: '[DEMO DATA]\n\n' + easypost.formatAsEvidence(tracking),
           sourceIntegration: 'EasyPost API',
           isAutoCollected: true,
           confidenceScore: 95,
@@ -199,8 +203,8 @@ async function runPipelineWithRetry(disputeId: string, orgId: string, maxRetries
         await addEvidence({
           disputeId: loaded.id,
           type: 'CUSTOMER_COMMUNICATION',
-          title: 'Support Interaction Log',
-          content: 'Customer contacted support regarding delivery timeline. Responded same day.',
+          title: '[DEMO DATA] Support Interaction Log',
+          content: '[DEMO DATA] Customer contacted support regarding delivery timeline. Responded same day.',
           sourceIntegration: 'Zendesk (Mock)',
           isAutoCollected: true,
           confidenceScore: 90,
